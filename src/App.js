@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Timetable from './components/Timetable';
 import AdminPanel from './components/AdminPanel';
+import NoticeSection from './components/NoticeSection';
 import './App.css';
 
 export default function App() {
@@ -52,13 +53,32 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <Timetable adminMode={adminMode} />
+        {/* 왼쪽: 시간표 + 하단 안내장/제출마감 */}
+        <div className="main-left">
+          <div className="timetable-section">
+            <Timetable adminMode={adminMode} />
+          </div>
+          <div className="notice-section">
+            <NoticeSection adminMode={adminMode} />
+          </div>
+        </div>
+
+        {/* 오른쪽: 학년자료실 */}
+        <div className="main-right">
+          <div className="resources-panel">
+            <div className="resources-header">
+              <span className="resources-icon">📁</span>
+              <span className="resources-title">학년 자료실</span>
+            </div>
+            <div className="resources-body">
+              <p className="resources-placeholder">준비 중입니다.</p>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* Admin panel */}
       {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
 
-      {/* Admin password modal */}
       {showAdminPrompt && (
         <div className="modal-backdrop" onClick={() => { setShowAdminPrompt(false); setPwError(false); }}>
           <div className="modal-box pw-modal" onClick={e => e.stopPropagation()}>

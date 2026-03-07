@@ -9,11 +9,19 @@ const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 const ALL_CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9','전담1','전담2','전담3'];
 const SPECIAL_CLASSES = ['전담1','전담2','전담3'];
 
+// 로컬 날짜를 YYYY-MM-DD로 변환 (toISOString은 UTC 변환으로 KST에서 하루 밀림)
+function toLocalDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function getWeekDates(mondayBase) {
   return Array.from({ length: 5 }, (_, i) => {
     const d = new Date(mondayBase);
     d.setDate(mondayBase.getDate() + i);
-    return { month: d.getMonth() + 1, date: d.getDate(), full: d.toISOString().split('T')[0] };
+    return { month: d.getMonth() + 1, date: d.getDate(), full: toLocalDateStr(d) };
   });
 }
 
