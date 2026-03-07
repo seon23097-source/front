@@ -529,21 +529,16 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
           <tfoot>
             {noticeRows.map(({ key, labelLines, rowClass, label }) => (
               <tr key={key} className={`notice-trow ${rowClass}`}>
-                {/* 왼쪽 nav 빈 칸 */}
-                <td className="td-nav td-nav-left notice-nav-td" />
+                {/* 왼쪽 nav 열 — 레이블 표시 */}
+                <td className="td-nav td-nav-left notice-label-td">
+                  {labelLines.map((l, i) => <span key={i}>{l}</span>)}
+                </td>
                 {DAYS.map((_, dayIdx) => {
                   const dateStr = weekDates[dayIdx].full;
                   const isNoSchool = noSchoolDateSet.has(dateStr);
                   const val = notices[dateStr]?.[key] || '';
-                  const isFirst = dayIdx === 0;
                   return (
                     <td key={dayIdx} className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}`}>
-                      {/* 첫 번째 셀에 레이블 오버레이 */}
-                      {isFirst && (
-                        <div className="notice-label-overlay">
-                          {labelLines.map((l, i) => <span key={i}>{l}</span>)}
-                        </div>
-                      )}
                       {adminMode && !isNoSchool ? (
                         <textarea className="notice-input" value={val}
                           onChange={e => updateNotice(dateStr, key, e.target.value)}
