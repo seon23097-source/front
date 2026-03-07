@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import Timetable from './components/Timetable';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 export default function App() {
   const [adminMode, setAdminMode] = useState(false);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
   const [pwError, setPwError] = useState(false);
 
@@ -33,9 +35,14 @@ export default function App() {
         </div>
         <div className="header-right">
           {adminMode ? (
-            <button className="admin-badge active" onClick={() => setAdminMode(false)}>
-              ✏️ 편집 모드 <span className="badge-off">종료</span>
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="admin-badge active" onClick={() => setShowAdminPanel(true)}>
+                ⚙️ 관리자 메뉴
+              </button>
+              <button className="admin-badge active" onClick={() => setAdminMode(false)}>
+                ✏️ 편집 모드 <span className="badge-off">종료</span>
+              </button>
+            </div>
           ) : (
             <button className="admin-badge" onClick={() => setShowAdminPrompt(true)}>
               🔒 관리자 편집
@@ -47,6 +54,9 @@ export default function App() {
       <main className="app-main">
         <Timetable adminMode={adminMode} />
       </main>
+
+      {/* Admin panel */}
+      {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
 
       {/* Admin password modal */}
       {showAdminPrompt && (
