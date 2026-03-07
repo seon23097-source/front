@@ -431,13 +431,9 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
         <table className="timetable-grid">
           <thead>
             <tr>
-              {/* 교시 칸에 주차 네비게이션 통합 */}
-              <th className="th-period th-period-nav">
-                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o - 1)}>‹</button>
-                <span className="week-nav-label-sm" title={weekLabel}>
-                  {weekOffset === 0 ? '이번' : weekOffset === -1 ? '지난' : weekOffset === 1 ? '다음' : `${weekDates[0].month}/${weekDates[0].date}`}
-                </span>
-                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o + 1)}>›</button>
+              {/* 이전 주 화살표 열 */}
+              <th className="th-nav th-nav-prev">
+                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o - 1)} title="이전 주">‹</button>
               </th>
               {DAYS.map((d, i) => {
                 const dateStr = weekDates[i].full;
@@ -449,20 +445,31 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                       <span className="th-day-name">{d}</span>
                       <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
                     </div>
-                    {dayEvs.map((ev, ei) => (
-                      <span key={ei} className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}>
-                        {ev.name}
-                      </span>
-                    ))}
+                    {/* 행사/공휴일 영역 — 항상 일정 높이 유지 */}
+                    <div className="th-event-row">
+                      {dayEvs.length > 0
+                        ? dayEvs.map((ev, ei) => (
+                            <span key={ei} className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}>
+                              {ev.name}
+                            </span>
+                          ))
+                        : <span className="th-event-placeholder" />
+                      }
+                    </div>
                   </th>
                 );
               })}
+              {/* 다음 주 화살표 열 */}
+              <th className="th-nav th-nav-next">
+                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o + 1)} title="다음 주">›</button>
+              </th>
             </tr>
           </thead>
           <tbody>
             {PERIODS.map(period => (
               <tr key={period}>
-                <td className="td-period">{period}</td>
+                {/* 이전 주 열 — 교시 번호 */}
+                <td className="td-nav td-period">{period}</td>
                 {DAYS.map((_, dayIdx) => {
                   const key = `${dayIdx}-${period}`;
                   const cellEntries = lookup[key] || [];
@@ -475,7 +482,6 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                     >
                       <div className={`cell-chips${cellEntries.length >= 5 ? ' cell-chips-compact' : ''}`}>
                         {cellEntries.map(e => {
-                          // focusedTeacher가 있으면 해당 교사 칩만 강조, 나머지는 dim
                           const isDimmed = focusedTeacher
                             ? !(e.teacher_name && focusedTeacher.teacherName &&
                                 e.teacher_name === focusedTeacher.teacherName)
@@ -494,6 +500,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                     </td>
                   );
                 })}
+                {/* 다음 주 열 — 빈 칸 */}
+                <td className="td-nav" />
               </tr>
             ))}
           </tbody>
