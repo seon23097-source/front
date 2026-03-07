@@ -207,6 +207,52 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+/* ── Week Navigation ────────────────────────────────── */
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+}
+
+.week-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.week-nav-btn:hover { background: var(--surface2); }
+
+.week-nav-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 60px;
+  text-align: center;
+}
+
+.week-nav-today {
+  background: none;
+  border: 1px solid var(--primary, #6366f1);
+  color: var(--primary, #6366f1);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.week-nav-today:hover { background: var(--primary, #6366f1); color: #fff; }
+
 /* ── Timetable Container ────────────────────────────── */
 .timetable-container {
   position: relative;
