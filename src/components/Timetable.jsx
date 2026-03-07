@@ -445,8 +445,10 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                 const isNoSchoolDay = noSchoolDateSet.has(dateStr);
                 return (
                   <th key={d} className={`th-day${isNoSchoolDay ? ' th-day-noschool' : ''}`}>
-                    <span className="th-day-name">{d}</span>
-                    <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
+                    <div className="th-day-headline">
+                      <span className="th-day-name">{d}</span>
+                      <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
+                    </div>
                     {dayEvs.map((ev, ei) => (
                       <span key={ei} className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}>
                         {ev.name}

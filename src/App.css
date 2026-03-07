@@ -414,7 +414,7 @@ tr.notice-row-deadline .notice-row-label {
 }
 
 .th-day {
-  padding: 8px 4px 6px;
+  padding: 7px 4px 5px;
   text-align: center;
   background: var(--surface2);
 }
@@ -423,33 +423,37 @@ tr.notice-row-deadline .notice-row-label {
   background: #f0f0f0;
 }
 
+/* 요일 + 날짜를 한 줄로 */
+.th-day-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1.1;
+}
+
 .th-day-name {
-  display: block;
   font-size: 22px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: 1px;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .th-day-date {
-  display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary, #666);
-  margin-top: 3px;
-  line-height: 1.1;
+  line-height: 1;
 }
 
-/* 이벤트/공휴일 라벨 - 날짜와 구분선으로 분리 */
+/* 행사일/공휴일 라벨 — 2번째 줄, 점선 없이 바로 */
 .th-event-label {
   display: block;
   font-size: 10px;
   font-weight: 600;
   color: #555;
-  margin-top: 5px;
-  padding-top: 4px;
-  border-top: 1px dashed #ddd;
+  margin-top: 4px;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -458,7 +462,6 @@ tr.notice-row-deadline .notice-row-label {
 }
 .th-event-holiday {
   color: #e53e3e;
-  border-top-color: #fcc;
 }
 
 /* 등교없는날 셀 */
