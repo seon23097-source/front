@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Timetable from './components/Timetable';
 import AdminPanel from './components/AdminPanel';
+import ResourcesPanel from './components/ResourcesPanel';
 import './App.css';
 
 export default function App() {
@@ -62,15 +63,7 @@ export default function App() {
 
         {/* 오른쪽: 학년자료실 */}
         <div className="main-right">
-          <div className="resources-panel">
-            <div className="resources-header">
-              <span className="resources-icon">📁</span>
-              <span className="resources-title">학년 자료실</span>
-            </div>
-            <div className="resources-body">
-              <p className="resources-placeholder">준비 중입니다.</p>
-            </div>
-          </div>
+          <ResourcesPanel adminMode={adminMode} />
         </div>
       </main>
 

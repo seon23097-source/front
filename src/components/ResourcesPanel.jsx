@@ -1,0 +1,381 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  listDriveFiles, getDriveBreadcrumb, getDriveDownloadUrl,
+  uploadDriveFile, createDriveFolder, renameDriveFile, deleteDriveFile,
+} from '../api/drive';
+
+// ── 파일 아이콘 ──────────────────────────────────────────
+function FileIcon({ mimeType, isFolder, size = 32 }) {
+  if (isFolder) return <span className="res-icon res-icon-folder" style={{ fontSize: size }}>📁</span>;
+
+  const ext = {
+    'application/pdf': '📄',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
+    'application/msword': '📝',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊',
+    'application/vnd.ms-excel': '📊',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '📑',
+    'application/vnd.ms-powerpoint': '📑',
+    'application/vnd.google-apps.document': '📝',
+    'application/vnd.google-apps.spreadsheet': '📊',
+    'application/vnd.google-apps.presentation': '📑',
+    'image/jpeg': '🖼️', 'image/png': '🖼️', 'image/gif': '🖼️', 'image/webp': '🖼️',
+    'video/mp4': '🎬', 'video/quicktime': '🎬',
+    'audio/mpeg': '🎵', 'audio/wav': '🎵',
+    'application/zip': '🗜️', 'application/x-zip-compressed': '🗜️',
+    'text/plain': '📃',
+    'application/hwp': '📝',
+    'application/x-hwp': '📝',
+  };
+  const icon = ext[mimeType] || '📄';
+  return <span className="res-icon" style={{ fontSize: size }}>{icon}</span>;
+}
+
+// ── 파일 크기 포맷 ───────────────────────────────────────
+function formatSize(bytes) {
+  if (!bytes) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+// ── 날짜 포맷 ────────────────────────────────────────────
+function formatDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── 컨텍스트 메뉴 ────────────────────────────────────────
+function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onClose }) {
+  useEffect(() => {
+    const handler = () => onClose();
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [onClose]);
+
+  return (
+    <div className="res-context-menu" style={{ top: y, left: x }} onClick={e => e.stopPropagation()}>
+      {!item.isFolder && (
+        <button onClick={() => { onDownload(item); onClose(); }}>
+          ⬇️ 다운로드
+        </button>
+      )}
+      <button onClick={() => { onRename(item); onClose(); }}>
+        ✏️ 이름 변경
+      </button>
+      <div className="res-ctx-divider" />
+      <button className="res-ctx-danger" onClick={() => { onDelete(item); onClose(); }}>
+        🗑️ 삭제
+      </button>
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ────────────────────────────────────────
+export default function ResourcesPanel({ adminMode }) {
+  const [files, setFiles] = useState([]);
+  const [breadcrumb, setBreadcrumb] = useState([{ id: '', name: '학년자료실' }]);
+  const [currentFolderId, setCurrentFolderId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, item }
+  const [renameItem, setRenameItem] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [newFolderMode, setNewFolderMode] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const loadFiles = useCallback(async (folderId = currentFolderId) => {
+    setLoading(true); setError(null);
+    try {
+      const [fileList, crumbs] = await Promise.all([
+        listDriveFiles(folderId),
+        getDriveBreadcrumb(folderId),
+      ]);
+      setFiles(fileList);
+      setBreadcrumb(crumbs);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentFolderId]);
+
+  useEffect(() => { loadFiles(currentFolderId); }, [currentFolderId]);
+
+  const navigateTo = (folderId) => {
+    setSelected(null);
+    setCurrentFolderId(folderId);
+  };
+
+  const handleItemDoubleClick = (item) => {
+    if (item.isFolder) navigateTo(item.id);
+    else window.open(getDriveDownloadUrl(item.id), '_blank');
+  };
+
+  const handleDownload = (item) => {
+    const a = document.createElement('a');
+    a.href = getDriveDownloadUrl(item.id);
+    a.download = item.name;
+    a.click();
+  };
+
+  const handleContextMenu = (e, item) => {
+    e.preventDefault();
+    setSelected(item.id);
+    setContextMenu({ x: e.clientX, y: e.clientY, item });
+  };
+
+  // 이름 변경
+  const startRename = (item) => {
+    setRenameItem(item);
+    setRenameValue(item.name);
+  };
+
+  const commitRename = async () => {
+    if (!renameValue.trim() || renameValue === renameItem.name) {
+      setRenameItem(null); return;
+    }
+    try {
+      await renameDriveFile(renameItem.id, renameValue.trim());
+      setRenameItem(null);
+      loadFiles(currentFolderId);
+    } catch (e) { alert(e.message); }
+  };
+
+  // 삭제
+  const handleDelete = async (item) => {
+    if (!window.confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) return;
+    try {
+      await deleteDriveFile(item.id);
+      loadFiles(currentFolderId);
+    } catch (e) { alert(e.message); }
+  };
+
+  // 폴더 생성
+  const commitNewFolder = async () => {
+    if (!newFolderName.trim()) { setNewFolderMode(false); return; }
+    try {
+      await createDriveFolder(newFolderName.trim(), currentFolderId);
+      setNewFolderMode(false); setNewFolderName('');
+      loadFiles(currentFolderId);
+    } catch (e) { alert(e.message); }
+  };
+
+  // 파일 업로드
+  const handleUpload = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(fileList)) {
+        await uploadDriveFile(file, currentFolderId);
+      }
+      loadFiles(currentFolderId);
+    } catch (e) { alert(e.message); }
+    finally { setUploading(false); }
+  };
+
+  // 드래그앤드롭
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = () => setIsDragging(false);
+  const handleDrop = (e) => {
+    e.preventDefault(); setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
+  };
+
+  const folders = files.filter(f => f.isFolder);
+  const fileItems = files.filter(f => !f.isFolder);
+
+  return (
+    <div className="resources-panel">
+      {/* 헤더 */}
+      <div className="resources-header">
+        <div className="resources-header-left">
+          <span className="resources-icon">📁</span>
+          <span className="resources-title">학년자료실</span>
+        </div>
+        <div className="resources-header-actions">
+          <button className="res-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            {uploading ? '⏳' : '⬆️'} 업로드
+          </button>
+          <button className="res-btn" onClick={() => { setNewFolderMode(true); setNewFolderName('새 폴더'); }}>
+            📂 새 폴더
+          </button>
+          <button className="res-btn res-btn-refresh" onClick={() => loadFiles(currentFolderId)} title="새로고침">
+            🔄
+          </button>
+          <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
+            onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
+        </div>
+      </div>
+
+      {/* 브레드크럼 */}
+      <div className="res-breadcrumb">
+        {breadcrumb.map((crumb, i) => (
+          <span key={crumb.id ?? i} className="res-crumb">
+            {i < breadcrumb.length - 1 ? (
+              <>
+                <button className="res-crumb-btn" onClick={() => navigateTo(crumb.id)}>{crumb.name}</button>
+                <span className="res-crumb-sep">›</span>
+              </>
+            ) : (
+              <span className="res-crumb-current">{crumb.name}</span>
+            )}
+          </span>
+        ))}
+      </div>
+
+      {/* 파일 목록 */}
+      <div
+        className={`resources-body${isDragging ? ' res-drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {loading ? (
+          <div className="res-state-msg">불러오는 중...</div>
+        ) : error ? (
+          <div className="res-state-msg res-error">{error}</div>
+        ) : files.length === 0 && !newFolderMode ? (
+          <div className="res-state-msg res-empty">
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+            파일을 여기에 드래그하거나<br />업로드 버튼을 사용하세요.
+          </div>
+        ) : (
+          <>
+            {/* 컬럼 헤더 */}
+            <div className="res-list-header">
+              <span className="res-col-name">이름</span>
+              <span className="res-col-date">수정일</span>
+              <span className="res-col-size">크기</span>
+            </div>
+
+            {/* 상위 폴더로 */}
+            {breadcrumb.length > 1 && (
+              <div className="res-list-row res-row-up" onDoubleClick={() => navigateTo(breadcrumb[breadcrumb.length - 2].id)}>
+                <span className="res-row-icon">⬆️</span>
+                <span className="res-row-name">..</span>
+                <span className="res-col-date" />
+                <span className="res-col-size" />
+              </div>
+            )}
+
+            {/* 새 폴더 입력 행 */}
+            {newFolderMode && (
+              <div className="res-list-row res-row-new">
+                <span className="res-row-icon">📁</span>
+                <input
+                  className="res-inline-input"
+                  autoFocus
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') commitNewFolder();
+                    if (e.key === 'Escape') { setNewFolderMode(false); }
+                  }}
+                  onBlur={commitNewFolder}
+                />
+                <span className="res-col-date" />
+                <span className="res-col-size" />
+              </div>
+            )}
+
+            {/* 폴더 목록 */}
+            {folders.map(item => (
+              <div
+                key={item.id}
+                className={`res-list-row${selected === item.id ? ' res-selected' : ''}`}
+                onClick={() => setSelected(item.id)}
+                onDoubleClick={() => handleItemDoubleClick(item)}
+                onContextMenu={e => handleContextMenu(e, item)}
+              >
+                <span className="res-row-icon">📁</span>
+                {renameItem?.id === item.id ? (
+                  <input
+                    className="res-inline-input"
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') commitRename();
+                      if (e.key === 'Escape') setRenameItem(null);
+                    }}
+                    onBlur={commitRename}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="res-row-name">{item.name}</span>
+                )}
+                <span className="res-col-date">{formatDate(item.modifiedTime)}</span>
+                <span className="res-col-size">-</span>
+              </div>
+            ))}
+
+            {/* 파일 목록 */}
+            {fileItems.map(item => (
+              <div
+                key={item.id}
+                className={`res-list-row${selected === item.id ? ' res-selected' : ''}`}
+                onClick={() => setSelected(item.id)}
+                onDoubleClick={() => handleItemDoubleClick(item)}
+                onContextMenu={e => handleContextMenu(e, item)}
+              >
+                <span className="res-row-icon">
+                  <FileIcon mimeType={item.mimeType} isFolder={false} size={18} />
+                </span>
+                {renameItem?.id === item.id ? (
+                  <input
+                    className="res-inline-input"
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') commitRename();
+                      if (e.key === 'Escape') setRenameItem(null);
+                    }}
+                    onBlur={commitRename}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="res-row-name">{item.name}</span>
+                )}
+                <span className="res-col-date">{formatDate(item.modifiedTime)}</span>
+                <span className="res-col-size">{formatSize(item.size)}</span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* 드래그 오버레이 */}
+        {isDragging && (
+          <div className="res-drag-overlay">
+            <div>⬆️ 파일을 놓아 업로드</div>
+          </div>
+        )}
+
+        {/* 업로드 중 오버레이 */}
+        {uploading && (
+          <div className="res-drag-overlay">
+            <div>⏳ 업로드 중...</div>
+          </div>
+        )}
+      </div>
+
+      {/* 컨텍스트 메뉴 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x} y={contextMenu.y} item={contextMenu.item}
+          onDownload={handleDownload}
+          onRename={startRename}
+          onDelete={handleDelete}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </div>
+  );
+}
