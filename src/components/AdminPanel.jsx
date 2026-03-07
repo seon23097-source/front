@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Component } from 'react';
 import {
   getSettings, saveSettings,
   getEvents, createEvent, updateEvent, deleteEvent,
@@ -60,18 +61,22 @@ function MenuSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSettings().then(list => {
-      const cur = list?.find(s => s.year === currentYear) || list?.[0];
-      if (cur) {
-        setForm({
-          year: cur.year,
-          sem1Start: cur.sem1Start || cur.sem_1_start || '',
-          summerVacationStart: cur.summerVacationStart || cur.summer_vacation_start || '',
-          sem2Start: cur.sem2Start || cur.sem_2_start || '',
-          winterVacationStart: cur.winterVacationStart || cur.winter_vacation_start || '',
-        });
-      }
-    }).catch(() => {}).finally(() => setLoading(false));
+    getSettings()
+      .then(list => {
+        if (!Array.isArray(list)) return;
+        const cur = list.find(s => s.year === currentYear) || list[0];
+        if (cur) {
+          setForm({
+            year: cur.year,
+            sem1Start: cur.sem1Start || cur.sem_1_start || '',
+            summerVacationStart: cur.summerVacationStart || cur.summer_vacation_start || '',
+            sem2Start: cur.sem2Start || cur.sem_2_start || '',
+            winterVacationStart: cur.winterVacationStart || cur.winter_vacation_start || '',
+          });
+        }
+      })
+      .catch(e => console.error('settings load error:', e))
+      .finally(() => setLoading(false));
   }, [currentYear]);
 
   const handleSave = async () => {
@@ -475,11 +480,13 @@ function MenuBaseTimetable() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([getClasses(), getSubjects()]).then(([cls, sub]) => {
-      setClasses(cls);
-      setSubjects(sub);
-      if (cls.length) setSelectedClass(cls[0].className);
-    });
+    Promise.all([getClasses(), getSubjects()])
+      .then(([cls, sub]) => {
+        setClasses(cls || []);
+        setSubjects(sub || []);
+        if (cls?.length) setSelectedClass(cls[0].className);
+      })
+      .catch(err => console.error('초기 로드 오류:', err));
   }, []);
 
   const loadGrid = useCallback(async (className) => {
@@ -630,28 +637,25 @@ function MenuBaseTimetable() {
 }
 
 function BaseCellEditModal({ cell, subjects, className, defaultTeacher, onSave, onDelete, onClose }) {
-  const [selectVal, setSelectVal] = useState(() => {
-    // 기존 값이 subjects 목록에 있으면 그걸로, 없으면 '__custom__'
-    const existing = cell.entry?.subject || '';
-    if (!existing) return '';
-    const inList = subjects.some(s => s.name === existing);
-    return inList ? existing : '__custom__';
-  });
-  const [customSubject, setCustomSubject] = useState(() => {
-    const existing = cell.entry?.subject || '';
-    const inList = subjects.some(s => s.name === existing);
-    return inList ? '' : existing;
-  });
-  // 담임 교사 기본값: 기존 입력값 → 담임 이름
+  // 기존 entry의 subject가 목록에 있는지 확인
+  const existingSubject = cell.entry?.subject || '';
+  const inSubjectList = existingSubject && subjects.some(s => s.name === existingSubject);
+
+  const [selectVal, setSelectVal] = useState(inSubjectList ? existingSubject : (existingSubject ? '__custom__' : ''));
+  const [customSubject, setCustomSubject] = useState(inSubjectList ? '' : existingSubject);
   const [teacherName, setTeacherName] = useState(
     cell.entry?.teacherName || cell.entry?.teacher_name || defaultTeacher || ''
   );
   const [isSpecialTeacher, setIsSpecialTeacher] = useState(
-    cell.entry?.isSpecialTeacher || cell.entry?.is_special_teacher || false
+    !!(cell.entry?.isSpecialTeacher || cell.entry?.is_special_teacher)
   );
 
-  // 실제 저장할 과목명
-  const resolvedSubject = selectVal === '__custom__' ? customSubject : selectVal;
+  const finalSubject = selectVal === '__custom__' ? customSubject.trim() : selectVal;
+
+  const handleSave = () => {
+    if (!finalSubject) return;
+    onSave({ day: cell.day, period: cell.period, subject: finalSubject, teacherName, isSpecialTeacher });
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -675,7 +679,7 @@ function BaseCellEditModal({ cell, subjects, className, defaultTeacher, onSave, 
                 className="ap-input-modal"
                 value={customSubject}
                 onChange={e => setCustomSubject(e.target.value)}
-                placeholder="과목명 입력"
+                placeholder="과목명 직접 입력"
                 autoFocus
               />
             </label>
@@ -697,13 +701,7 @@ function BaseCellEditModal({ cell, subjects, className, defaultTeacher, onSave, 
           {cell.entry && <button className="btn-delete" onClick={() => onDelete(cell.entry)}>삭제</button>}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button
-            className="btn-save"
-            disabled={!resolvedSubject}
-            onClick={() => onSave({ day: cell.day, period: cell.period, subject: resolvedSubject, teacherName, isSpecialTeacher })}
-          >
-            저장
-          </button>
+          <button className="btn-save" disabled={!finalSubject} onClick={handleSave}>저장</button>
         </div>
       </div>
     </div>
@@ -728,6 +726,20 @@ const MENU_COMPONENTS = {
   subjects: MenuSubjects,
   basetimetable: MenuBaseTimetable,
 };
+
+class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: 24, color: '#FF4757' }}>
+        <b>오류 발생:</b> {this.state.error.message}
+        <br /><button onClick={() => this.setState({ error: null })}>다시 시도</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 export default function AdminPanel({ onClose }) {
   const [activeMenu, setActiveMenu] = useState('settings');
@@ -760,7 +772,9 @@ export default function AdminPanel({ onClose }) {
 
         {/* 메인 콘텐츠 */}
         <main className="ap-main">
-          <ActiveComp />
+          <ErrorBoundary key={activeMenu}>
+            <ActiveComp />
+          </ErrorBoundary>
         </main>
       </div>
     </div>
