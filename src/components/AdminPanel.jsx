@@ -619,6 +619,7 @@ function MenuBaseTimetable() {
           cell={editCell}
           subjects={subjects}
           className={selectedClass}
+          defaultTeacher={classes.find(c => c.className === selectedClass)?.teacherName || ''}
           onSave={handleCellSave}
           onDelete={handleCellDelete}
           onClose={() => setEditCell(null)}
@@ -628,10 +629,29 @@ function MenuBaseTimetable() {
   );
 }
 
-function BaseCellEditModal({ cell, subjects, className, onSave, onDelete, onClose }) {
-  const [subject, setSubject] = useState(cell.entry?.subject || '');
-  const [teacherName, setTeacherName] = useState(cell.entry?.teacherName || cell.entry?.teacher_name || '');
-  const [isSpecialTeacher, setIsSpecialTeacher] = useState(cell.entry?.isSpecialTeacher || cell.entry?.is_special_teacher || false);
+function BaseCellEditModal({ cell, subjects, className, defaultTeacher, onSave, onDelete, onClose }) {
+  const [selectVal, setSelectVal] = useState(() => {
+    // 기존 값이 subjects 목록에 있으면 그걸로, 없으면 '__custom__'
+    const existing = cell.entry?.subject || '';
+    if (!existing) return '';
+    const inList = subjects.some(s => s.name === existing);
+    return inList ? existing : '__custom__';
+  });
+  const [customSubject, setCustomSubject] = useState(() => {
+    const existing = cell.entry?.subject || '';
+    const inList = subjects.some(s => s.name === existing);
+    return inList ? '' : existing;
+  });
+  // 담임 교사 기본값: 기존 입력값 → 담임 이름
+  const [teacherName, setTeacherName] = useState(
+    cell.entry?.teacherName || cell.entry?.teacher_name || defaultTeacher || ''
+  );
+  const [isSpecialTeacher, setIsSpecialTeacher] = useState(
+    cell.entry?.isSpecialTeacher || cell.entry?.is_special_teacher || false
+  );
+
+  // 실제 저장할 과목명
+  const resolvedSubject = selectVal === '__custom__' ? customSubject : selectVal;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -643,19 +663,30 @@ function BaseCellEditModal({ cell, subjects, className, onSave, onDelete, onClos
         </div>
         <div className="modal-body">
           <label>과목
-            <select className="ap-select" value={subject} onChange={e => setSubject(e.target.value)}>
+            <select className="ap-select" value={selectVal} onChange={e => setSelectVal(e.target.value)}>
               <option value="">-- 선택 --</option>
               {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               <option value="__custom__">직접 입력</option>
             </select>
           </label>
-          {subject === '__custom__' && (
+          {selectVal === '__custom__' && (
             <label>직접 입력
-              <input className="ap-input-modal" onChange={e => setSubject(e.target.value)} placeholder="과목명 입력" />
+              <input
+                className="ap-input-modal"
+                value={customSubject}
+                onChange={e => setCustomSubject(e.target.value)}
+                placeholder="과목명 입력"
+                autoFocus
+              />
             </label>
           )}
           <label>담당 교사
-            <input className="ap-input-modal" value={teacherName} onChange={e => setTeacherName(e.target.value)} placeholder="교사 이름" />
+            <input
+              className="ap-input-modal"
+              value={teacherName}
+              onChange={e => setTeacherName(e.target.value)}
+              placeholder={defaultTeacher ? `기본값: ${defaultTeacher}` : '교사 이름'}
+            />
           </label>
           <label className="checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" checked={isSpecialTeacher} onChange={e => setIsSpecialTeacher(e.target.checked)} />
@@ -666,7 +697,13 @@ function BaseCellEditModal({ cell, subjects, className, onSave, onDelete, onClos
           {cell.entry && <button className="btn-delete" onClick={() => onDelete(cell.entry)}>삭제</button>}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button className="btn-save" onClick={() => onSave({ day: cell.day, period: cell.period, subject, teacherName, isSpecialTeacher })}>저장</button>
+          <button
+            className="btn-save"
+            disabled={!resolvedSubject}
+            onClick={() => onSave({ day: cell.day, period: cell.period, subject: resolvedSubject, teacherName, isSpecialTeacher })}
+          >
+            저장
+          </button>
         </div>
       </div>
     </div>
