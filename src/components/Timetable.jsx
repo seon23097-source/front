@@ -61,7 +61,8 @@ function normalizeEntry(e) {
   };
 }
 
-function CellChip({ entry, colorMap, onClick }) {
+// compact=true 이면 이름 없이 과목 이니셜만 (5개 이상 칩일 때)
+function CellChip({ entry, colorMap, onClick, compact = false }) {
   if (!entry) return null;
   const color = colorMap[entry.class_name];
   if (!color) return null;
@@ -75,7 +76,7 @@ function CellChip({ entry, colorMap, onClick }) {
 
   return (
     <div
-      className={`cell-chip${isSub ? ' cell-chip-substitute' : ''}`}
+      className={`cell-chip${isSub ? ' cell-chip-substitute' : ''}${compact ? ' cell-chip-compact' : ''}`}
       style={style}
       onClick={() => onClick && onClick(entry)}
       title={isSub
@@ -85,12 +86,12 @@ function CellChip({ entry, colorMap, onClick }) {
       {isSub ? (
         <>
           <span className="chip-sub-badge">보</span>
-          <span className="chip-sub-from">{entry.substitute_from || ''}</span>
+          {!compact && <span className="chip-sub-from">{entry.substitute_from || ''}</span>}
         </>
       ) : (
         <>
           <span className="chip-initial">{getInitial(entry.subject)}</span>
-          {entry.teacher_name && <span className="chip-teacher">{entry.teacher_name}</span>}
+          {!compact && entry.teacher_name && <span className="chip-teacher">{entry.teacher_name}</span>}
         </>
       )}
     </div>
@@ -412,9 +413,10 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                       className={`td-cell${adminMode ? ' editable' : ''}${isNoSchoolDay ? ' td-cell-noschool' : ''}`}
                       onClick={() => !isNoSchoolDay && handleCellClick(dayIdx, period)}
                     >
-                      <div className="cell-chips">
+                      <div className={`cell-chips${cellEntries.length >= 5 ? ' cell-chips-compact' : ''}`}>
                         {cellEntries.map(e => (
                           <CellChip key={e.id} entry={e} colorMap={colorMap}
+                            compact={cellEntries.length >= 5}
                             onClick={isNoSchoolDay ? null : handleChipClick} />
                         ))}
                         {adminMode && selectedClasses.length === 1 && cellEntries.length === 0 && !isNoSchoolDay && (

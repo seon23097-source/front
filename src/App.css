@@ -568,6 +568,30 @@ tr.notice-row-deadline .notice-row-label {
   opacity: 0.9;
 }
 
+/* ── Compact 칩 (5개 이상일 때) ─────────────────────── */
+/* 셀 전체가 compact 모드 */
+.cell-chips-compact {
+  gap: 2px;
+  padding: 2px;
+}
+
+/* compact 칩: 과목 이니셜만, 정사각형 작은 크기 */
+.cell-chip-compact {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border-width: 1.5px !important;
+}
+
+.cell-chip-compact .chip-initial {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cell-chip-compact .chip-sub-badge {
+  font-size: 11px;
+}
+
 /* 보결 모달 */
 .sub-modal-info {
   font-size: 13px;
