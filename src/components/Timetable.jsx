@@ -5,7 +5,7 @@ import {
 } from '../api/timetable';
 
 const DAYS = ['월', '화', '수', '목', '금'];
-const PERIODS = [1, 2, 3, 4, 5, 6, 7];
+const PERIODS = [1, 2, 3, 4, 5, 6];
 const ALL_CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9','전담1','전담2','전담3'];
 const SPECIAL_CLASSES = ['전담1','전담2','전담3'];
 
