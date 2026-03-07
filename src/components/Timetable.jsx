@@ -7,7 +7,13 @@ import { getClasses } from '../api/admin';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
-// ALL_CLASSES / SPECIAL_CLASSES는 DB에서 동적 로드 (아래 state 참고)
+const NOTICE_STORAGE_KEY = 'schosche_notices';
+
+function loadNotices() {
+  try { return JSON.parse(localStorage.getItem(NOTICE_STORAGE_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveNoticesStorage(data) { localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(data)); }
 
 export function toLocalDateStr(d) {
   const y = d.getFullYear();
@@ -233,6 +239,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   const [classesList, setClassesList] = useState([]);
   // 전담 강조 필터: { className, teacherName } | null
   const [focusedTeacher, setFocusedTeacher] = useState(null);
+  // 안내장/제출마감
+  const [notices, setNotices] = useState(loadNotices);
 
   // classesList 기반 동적 목록
   const regularClasses = classesList.filter(c => !c.isSpecial).map(c => c.className);
@@ -365,6 +373,17 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
       }
     }
   };
+
+  const updateNotice = (dateStr, field, value) => {
+    const updated = { ...notices, [dateStr]: { ...(notices[dateStr] || {}), [field]: value } };
+    setNotices(updated);
+    saveNoticesStorage(updated);
+  };
+
+  const noticeRows = [
+    { key: 'notice',   labelLines: ['안','내','장'], rowClass: 'notice-row-notice',   label: '안내장'  },
+    { key: 'deadline', labelLines: ['제출','마감'],  rowClass: 'notice-row-deadline', label: '제출마감' },
+  ];
 
   const weekLabel = weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난 주' : weekOffset === 1 ? '다음 주'
     : `${weekDates[0].month}/${weekDates[0].date}~${weekDates[4].month}/${weekDates[4].date}`;
@@ -505,6 +524,41 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
               </tr>
             ))}
           </tbody>
+
+          {/* ── 안내장 / 제출마감 — 같은 테이블 tfoot으로 열 완전 일치 ── */}
+          <tfoot>
+            {noticeRows.map(({ key, labelLines, rowClass, label }) => (
+              <tr key={key} className={`notice-trow ${rowClass}`}>
+                {/* 왼쪽 nav 빈 칸 */}
+                <td className="td-nav td-nav-left notice-nav-td" />
+                {DAYS.map((_, dayIdx) => {
+                  const dateStr = weekDates[dayIdx].full;
+                  const isNoSchool = noSchoolDateSet.has(dateStr);
+                  const val = notices[dateStr]?.[key] || '';
+                  const isFirst = dayIdx === 0;
+                  return (
+                    <td key={dayIdx} className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}`}>
+                      {/* 첫 번째 셀에 레이블 오버레이 */}
+                      {isFirst && (
+                        <div className="notice-label-overlay">
+                          {labelLines.map((l, i) => <span key={i}>{l}</span>)}
+                        </div>
+                      )}
+                      {adminMode && !isNoSchool ? (
+                        <textarea className="notice-input" value={val}
+                          onChange={e => updateNotice(dateStr, key, e.target.value)}
+                          placeholder={label} />
+                      ) : (
+                        <div className="notice-text">{val}</div>
+                      )}
+                    </td>
+                  );
+                })}
+                {/* 오른쪽 nav 빈 칸 */}
+                <td className="td-nav notice-nav-td" />
+              </tr>
+            ))}
+          </tfoot>
         </table>
       </div>
 

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Timetable from './components/Timetable';
 import AdminPanel from './components/AdminPanel';
-import NoticeSection from './components/NoticeSection';
 import './App.css';
 
 export default function App() {
@@ -54,13 +53,10 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {/* 왼쪽: 시간표 + 하단 안내장/제출마감 */}
+        {/* 왼쪽: 시간표 (notice행 포함) */}
         <div className="main-left">
           <div className="timetable-section">
             <Timetable adminMode={adminMode} onWeekOffsetChange={setWeekOffset} />
-          </div>
-          <div className="notice-section">
-            <NoticeSection adminMode={adminMode} weekOffset={weekOffset} />
           </div>
         </div>
 
