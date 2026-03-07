@@ -39,8 +39,8 @@ export default function NoticeSection({ adminMode, weekOffset = 0 }) {
   };
 
   const rows = [
-    { key: 'notice',   label: '안내장' },
-    { key: 'deadline', label: '제출마감' },
+    { key: 'notice',   label: '안내장',   rowClass: 'notice-row-notice'   },
+    { key: 'deadline', label: '제출마감', rowClass: 'notice-row-deadline' },
   ];
 
   return (
@@ -51,8 +51,8 @@ export default function NoticeSection({ adminMode, weekOffset = 0 }) {
           {DAYS.map((_, i) => <col key={i} />)}
         </colgroup>
         <tbody>
-          {rows.map(({ key, label }) => (
-            <tr key={key}>
+          {rows.map(({ key, label, rowClass }) => (
+            <tr key={key} className={rowClass}>
               <td className="notice-row-label">{label}</td>
               {weekDates.map((wd, i) => {
                 const isNoSchool = noSchoolDateSet.has(wd.full);
