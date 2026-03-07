@@ -397,6 +397,73 @@ html, body, #root {
   opacity: 0.85;
 }
 
+/* 보결 칩 */
+.cell-chip-substitute {
+  position: relative;
+}
+
+.chip-sub-badge {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.chip-sub-from {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+/* 보결 모달 */
+.sub-modal-info {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.sub-loading, .sub-empty {
+  font-size: 13px;
+  color: var(--text-muted, #999);
+  padding: 12px 0;
+  text-align: center;
+}
+.sub-teacher-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sub-teacher-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 60px;
+}
+.sub-teacher-btn:hover {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+.sub-teacher-btn.selected {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  box-shadow: 0 0 0 2px #f59e0b44;
+}
+.sub-class {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sub-name {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  margin-top: 2px;
+}
+
 .cell-add-hint {
   display: flex;
   align-items: center;

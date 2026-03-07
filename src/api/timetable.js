@@ -49,3 +49,32 @@ export async function updateColor(colorData) {
   if (!res.ok) throw new Error('색상 저장 실패');
   return res.json();
 }
+
+// 보결 관련
+export async function getFreeTeachers(dayOfWeek, period, applyDate) {
+  const res = await fetch(
+    `${BASE_URL}/api/timetable/free-teachers?dayOfWeek=${dayOfWeek}&period=${period}&applyDate=${encodeURIComponent(applyDate)}`
+  );
+  if (!res.ok) throw new Error('빈 교사 조회 실패');
+  return res.json();
+}
+
+export async function saveSubstitute(data) {
+  const res = await fetch(`${BASE_URL}/api/timetable/substitute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('보결 저장 실패');
+  return res.json();
+}
+
+export async function clearSubstitute(data) {
+  const res = await fetch(`${BASE_URL}/api/timetable/substitute`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('보결 해제 실패');
+  return res.json();
+}
