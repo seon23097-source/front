@@ -137,7 +137,7 @@ function MenuSettings() {
             </div>
             <div className="ap-summary-item">
               <span className="dot" style={{ background: '#74B9FF' }} />
-              <span>겨울방학: {form.winterVacationStart} ~ {form.year}년 2월 말일</span>
+              <span>겨울방학: {form.winterVacationStart} ~ {winterVacationEndYear(form.winterVacationStart, form.year)}년 2월 말일</span>
             </div>
           </div>
         )}
@@ -150,6 +150,16 @@ function dayBefore(dateStr) {
   const d = new Date(dateStr);
   d.setDate(d.getDate() - 1);
   return d.toISOString().split('T')[0];
+}
+
+// 겨울방학 종료 연도: 시작일이 다음 해(1~2월)면 그 해, 당해(12월)면 +1년
+function winterVacationEndYear(winterStart, schoolYear) {
+  if (!winterStart) return schoolYear;
+  const month = new Date(winterStart).getMonth() + 1; // 1~12
+  // 12월에 시작하면 다음 해 2월까지 → schoolYear + 1
+  // 1~2월에 시작하면 그 해 2월까지 → winterStart의 연도
+  if (month === 12) return Number(schoolYear) + 1;
+  return new Date(winterStart).getFullYear();
 }
 
 /* ══════════════════════════════════════════════════════
