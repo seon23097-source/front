@@ -2,6 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchTimetableByClasses, fetchColors, upsertEntry, deleteEntry } from '../api/timetable';
 
 const DAYS = ['월', '화', '수', '목', '금'];
+
+// 이번 주 월~금 날짜 반환 (오늘이 주말이면 다음 주 기준)
+function getWeekDates() {
+  const today = new Date();
+  const dow = today.getDay();
+  const diff = dow === 0 ? 1 : dow === 6 ? 2 : 1 - dow;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diff);
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { month: d.getMonth() + 1, date: d.getDate() };
+  });
+}
 const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 const ALL_CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9','전담1','전담2','전담3'];
 const SPECIAL_CLASSES = ['전담1','전담2','전담3'];
@@ -144,6 +158,7 @@ export default function Timetable({ adminMode = false }) {
   const [loading, setLoading] = useState(true);
   const [editCell, setEditCell] = useState(null);
   const [error, setError] = useState(null);
+  const weekDates = getWeekDates(); // 이번 주 월~금 날짜
 
   const loadColors = useCallback(async () => {
     try {
@@ -314,7 +329,12 @@ export default function Timetable({ adminMode = false }) {
           <thead>
             <tr>
               <th className="th-period">교시</th>
-              {DAYS.map(d => <th key={d} className="th-day">{d}</th>)}
+              {DAYS.map((d, i) => (
+                <th key={d} className="th-day">
+                  <span className="th-day-name">{d}</span>
+                  <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

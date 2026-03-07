@@ -262,13 +262,25 @@ html, body, #root {
 }
 
 .th-day {
-  padding: 10px 8px;
+  padding: 8px 6px;
   text-align: center;
+  background: var(--surface2);
+}
+
+.th-day-name {
+  display: block;
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  background: var(--surface2);
   letter-spacing: 1px;
+}
+
+.th-day-date {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #888);
+  margin-top: 2px;
 }
 
 .td-period {
