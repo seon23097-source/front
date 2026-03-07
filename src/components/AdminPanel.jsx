@@ -495,7 +495,7 @@ function MenuBaseTimetable() {
     try {
       const entries = await getBaseTimetable(className);
       const map = {};
-      entries.forEach(e => { map[`${e.dayOfWeek || e.day_of_week}-${e.period}`] = e; });
+      entries.forEach(e => { map[`${e.dayOfWeek ?? e.day_of_week}-${e.period}`] = e; });
       setGrid(map);
     } finally {
       setLoading(false);
