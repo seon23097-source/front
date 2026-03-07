@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   fetchTimetableByClasses, fetchColors, upsertEntry, deleteEntry,
-  getFreeTeachers, saveSubstitute, clearSubstitute,
+  getFreeTeachers, saveSubstitute, clearSubstitute, fetchEvents,
 } from '../api/timetable';
 
 const DAYS = ['월', '화', '수', '목', '금'];
@@ -234,9 +234,10 @@ export default function Timetable({ adminMode = false }) {
   const [colorMap, setColorMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [editCell, setEditCell] = useState(null);
-  const [subCell, setSubCell] = useState(null); // 보결 모달용
+  const [subCell, setSubCell] = useState(null);
   const [error, setError] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [events, setEvents] = useState([]); // 행사/공휴일
 
   const currentMonday = (() => {
     const base = getThisMonday();
@@ -245,6 +246,27 @@ export default function Timetable({ adminMode = false }) {
   })();
   const weekDates = getWeekDates(currentMonday);
   const weekDateSet = new Set(weekDates.map(d => d.full));
+
+  // 날짜별 이벤트 매핑: { 'YYYY-MM-DD': [{ name, type, isNoSchool }] }
+  const dayEventMap = {};
+  events.forEach(ev => {
+    const start = ev.startDate;
+    const end = ev.endDate || ev.startDate;
+    // 이 주의 날짜들과 겹치는 날 매핑
+    weekDates.forEach(wd => {
+      if (wd.full >= start && wd.full <= end) {
+        if (!dayEventMap[wd.full]) dayEventMap[wd.full] = [];
+        dayEventMap[wd.full].push({ name: ev.name, type: ev.type, isNoSchool: ev.isNoSchool });
+      }
+    });
+  });
+
+  // isNoSchool 날짜 집합
+  const noSchoolDateSet = new Set(
+    Object.entries(dayEventMap)
+      .filter(([, evs]) => evs.some(e => e.isNoSchool))
+      .map(([date]) => date)
+  );
 
   const loadColors = useCallback(async () => {
     try {
@@ -275,6 +297,9 @@ export default function Timetable({ adminMode = false }) {
 
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
+  useEffect(() => {
+    fetchEvents().then(setEvents).catch(() => setEvents([]));
+  }, []);
 
   const toggleClass = (cls) =>
     setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
@@ -401,12 +426,25 @@ export default function Timetable({ adminMode = false }) {
           <thead>
             <tr>
               <th className="th-period">교시</th>
-              {DAYS.map((d, i) => (
-                <th key={d} className="th-day">
-                  <span className="th-day-name">{d}</span>
-                  <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
-                </th>
-              ))}
+              {DAYS.map((d, i) => {
+                const dateStr = weekDates[i].full;
+                const dayEvs = dayEventMap[dateStr] || [];
+                const isNoSchoolDay = noSchoolDateSet.has(dateStr);
+                return (
+                  <th key={d} className={`th-day${isNoSchoolDay ? ' th-day-noschool' : ''}`}>
+                    <span className="th-day-name">{d}</span>
+                    <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
+                    {dayEvs.map((ev, ei) => (
+                      <span
+                        key={ei}
+                        className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}
+                      >
+                        {ev.name}
+                      </span>
+                    ))}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -416,16 +454,23 @@ export default function Timetable({ adminMode = false }) {
                 {DAYS.map((_, dayIdx) => {
                   const key = `${dayIdx}-${period}`;
                   const cellEntries = lookup[key] || [];
+                  const dateStr = weekDates[dayIdx].full;
+                  const isNoSchoolDay = noSchoolDateSet.has(dateStr);
                   return (
                     <td key={dayIdx}
-                      className={`td-cell ${adminMode ? 'editable' : ''}`}
-                      onClick={() => handleCellClick(dayIdx, period)}
+                      className={`td-cell${adminMode ? ' editable' : ''}${isNoSchoolDay ? ' td-cell-noschool' : ''}`}
+                      onClick={() => !isNoSchoolDay && handleCellClick(dayIdx, period)}
                     >
                       <div className="cell-chips">
                         {cellEntries.map(e => (
-                          <CellChip key={e.id} entry={e} colorMap={colorMap} onClick={handleChipClick} />
+                          <CellChip
+                            key={e.id}
+                            entry={e}
+                            colorMap={colorMap}
+                            onClick={isNoSchoolDay ? null : handleChipClick}
+                          />
                         ))}
-                        {adminMode && selectedClasses.length === 1 && cellEntries.length === 0 && (
+                        {adminMode && selectedClasses.length === 1 && cellEntries.length === 0 && !isNoSchoolDay && (
                           <div className="cell-add-hint">+</div>
                         )}
                       </div>

@@ -313,6 +313,10 @@ html, body, #root {
   background: var(--surface2);
 }
 
+.th-day-noschool {
+  background: #f0f0f0;
+}
+
 .th-day-name {
   display: block;
   font-size: 13px;
@@ -327,6 +331,39 @@ html, body, #root {
   font-weight: 500;
   color: var(--text-secondary, #888);
   margin-top: 2px;
+}
+
+/* 이벤트/공휴일 라벨 */
+.th-event-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #555;
+  margin-top: 3px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+.th-event-holiday {
+  color: #e53e3e;
+}
+
+/* 등교없는날 셀 */
+.td-cell-noschool {
+  background: #f5f5f5 !important;
+  cursor: default !important;
+  pointer-events: none;
+}
+.td-cell-noschool .cell-chip {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.td-cell-noschool .cell-chip:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .td-period {

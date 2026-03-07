@@ -34,6 +34,12 @@ export async function deleteEntry(class_name, day_of_week, period, apply_date = 
   return res.json();
 }
 
+export async function fetchEvents() {
+  const res = await fetch(`${BASE_URL}/api/events`);
+  if (!res.ok) throw new Error('행사 불러오기 실패');
+  return res.json();
+}
+
 export async function fetchColors() {
   const res = await fetch(`${BASE_URL}/api/colors`);
   if (!res.ok) throw new Error('색상 불러오기 실패');
