@@ -468,8 +468,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
           <tbody>
             {PERIODS.map(period => (
               <tr key={period}>
-                {/* 이전 주 열 — 교시 번호 */}
-                <td className="td-nav td-period">{period}</td>
+                {/* 이전 주 열 — 빈 칸 */}
+                <td className="td-nav td-nav-left" />
                 {DAYS.map((_, dayIdx) => {
                   const key = `${dayIdx}-${period}`;
                   const cellEntries = lookup[key] || [];
@@ -500,8 +500,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                     </td>
                   );
                 })}
-                {/* 다음 주 열 — 빈 칸 */}
-                <td className="td-nav" />
+                {/* 다음 주 열 — 교시 번호 (흰색) */}
+                <td className="td-nav td-period-right">{period}</td>
               </tr>
             ))}
           </tbody>

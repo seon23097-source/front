@@ -39,21 +39,30 @@ export default function NoticeSection({ adminMode, weekOffset = 0 }) {
   };
 
   const rows = [
-    { key: 'notice',   label: '안내장',   rowClass: 'notice-row-notice'   },
-    { key: 'deadline', label: '제출마감', rowClass: 'notice-row-deadline' },
+    { key: 'notice',   label: '안내장',   rowClass: 'notice-row-notice',   labelLines: ['안','내','장'] },
+    { key: 'deadline', label: '제출마감', rowClass: 'notice-row-deadline', labelLines: ['제출','마감'] },
   ];
 
   return (
     <div className="notice-wrapper">
       <table className="notice-table">
         <colgroup>
+          {/* 시간표의 th-nav-prev 열과 맞춤 */}
+          <col className="notice-col-nav" />
+          {/* 레이블 열 */}
           <col style={{ width: '44px' }} />
           {DAYS.map((_, i) => <col key={i} />)}
+          {/* 시간표의 th-nav-next 열과 맞춤 */}
+          <col className="notice-col-nav" />
         </colgroup>
         <tbody>
-          {rows.map(({ key, label, rowClass }) => (
+          {rows.map(({ key, label, rowClass, labelLines }) => (
             <tr key={key} className={rowClass}>
-              <td className="notice-row-label">{label}</td>
+              {/* 왼쪽 nav 빈 칸 */}
+              <td className="notice-nav-cell" />
+              <td className="notice-row-label">
+                {labelLines.map((line, i) => <span key={i} className="notice-label-char">{line}</span>)}
+              </td>
               {weekDates.map((wd, i) => {
                 const isNoSchool = noSchoolDateSet.has(wd.full);
                 const val = notices[wd.full]?.[key] || '';
@@ -72,6 +81,8 @@ export default function NoticeSection({ adminMode, weekOffset = 0 }) {
                   </td>
                 );
               })}
+              {/* 오른쪽 nav 빈 칸 */}
+              <td className="notice-nav-cell" />
             </tr>
           ))}
         </tbody>
