@@ -197,7 +197,7 @@ function EditModal({ cell, colorMap, onSave, onDelete, onClose }) {
   const handleDelete = async () => {
     if (!cell.entry) return;
     setSaving(true);
-    try { await onDelete(cell.class_name, cell.day, cell.period); onClose(); }
+    try { await onDelete(cell.class_name, cell.day, cell.period, cell.entry?.apply_date ?? null); onClose(); }
     finally { setSaving(false); }
   };
   const color = colorMap[cell.class_name];
@@ -311,7 +311,10 @@ export default function Timetable({ adminMode = false }) {
   };
 
   const handleSave = async (data) => { await upsertEntry(data); await loadTimetable(); };
-  const handleDelete = async (cls, day, period) => { await deleteEntry(cls, day, period); await loadTimetable(); };
+  const handleDelete = async (cls, day, period, applyDate = null) => {
+    await deleteEntry(cls, day, period, applyDate);
+    await loadTimetable();
+  };
   const handleSubSave = async (data) => { await saveSubstitute(data); await loadTimetable(); };
   const handleSubClear = async (data) => { await clearSubstitute(data); await loadTimetable(); };
 

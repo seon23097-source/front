@@ -268,7 +268,10 @@ function EventEditModal({ item, onSave, onClose }) {
         <div className="modal-footer">
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button className="btn-save" onClick={() => onSave(form)}>저장</button>
+          <button className="btn-save" onClick={() => onSave({
+            ...form,
+            endDate: form.endDate?.trim() || null,
+          })}>저장</button>
         </div>
       </div>
     </div>

@@ -24,11 +24,11 @@ export async function upsertEntry(entry) {
   return res.json();
 }
 
-export async function deleteEntry(class_name, day_of_week, period) {
+export async function deleteEntry(class_name, day_of_week, period, apply_date = null) {
   const res = await fetch(`${BASE_URL}/api/timetable`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ class_name, day_of_week, period })
+    body: JSON.stringify({ class_name, day_of_week, period, ...(apply_date ? { apply_date } : {}) })
   });
   if (!res.ok) throw new Error('삭제 실패');
   return res.json();
