@@ -3,11 +3,11 @@ import {
   fetchTimetableByClasses, fetchColors, upsertEntry, deleteEntry,
   getFreeTeachers, saveSubstitute, clearSubstitute, fetchEvents,
 } from '../api/timetable';
+import { getClasses } from '../api/admin';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
-const ALL_CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9','전담1','전담2','전담3'];
-const SPECIAL_CLASSES = ['전담1','전담2','전담3'];
+// ALL_CLASSES / SPECIAL_CLASSES는 DB에서 동적 로드 (아래 state 참고)
 
 export function toLocalDateStr(d) {
   const y = d.getFullYear();
@@ -62,7 +62,8 @@ function normalizeEntry(e) {
 }
 
 // compact=true 이면 이름 없이 과목 이니셜만 (5개 이상 칩일 때)
-function CellChip({ entry, colorMap, onClick, compact = false }) {
+// dimmed=true 이면 그레이스케일 + 반투명 (전담 강조 필터)
+function CellChip({ entry, colorMap, onClick, compact = false, dimmed = false }) {
   if (!entry) return null;
   const color = colorMap[entry.class_name];
   if (!color) return null;
@@ -76,7 +77,7 @@ function CellChip({ entry, colorMap, onClick, compact = false }) {
 
   return (
     <div
-      className={`cell-chip${isSub ? ' cell-chip-substitute' : ''}${compact ? ' cell-chip-compact' : ''}`}
+      className={`cell-chip${isSub ? ' cell-chip-substitute' : ''}${compact ? ' cell-chip-compact' : ''}${dimmed ? ' cell-chip-dimmed' : ''}`}
       style={style}
       onClick={() => onClick && onClick(entry)}
       title={isSub
@@ -228,6 +229,15 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   const [error, setError] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState([]);
+  // DB에서 로드한 클래스 목록
+  const [classesList, setClassesList] = useState([]);
+  // 전담 강조 필터: { className, teacherName } | null
+  const [focusedTeacher, setFocusedTeacher] = useState(null);
+
+  // classesList 기반 동적 목록
+  const regularClasses = classesList.filter(c => !c.isSpecial).map(c => c.className);
+  const specialClasses = classesList.filter(c => c.isSpecial);
+  const allClassNames = classesList.map(c => c.className);
 
   const changeWeekOffset = (val) => {
     const next = typeof val === 'function' ? val(weekOffset) : val;
@@ -291,6 +301,23 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
   useEffect(() => { fetchEvents().then(setEvents).catch(() => setEvents([])); }, []);
+  useEffect(() => {
+    getClasses()
+      .then(data => {
+        // sort_order 기준 정렬
+        const sorted = [...data].sort((a, b) => (a.sortOrder ?? a.sort_order ?? 0) - (b.sortOrder ?? b.sort_order ?? 0));
+        setClassesList(sorted);
+      })
+      .catch(() => {
+        // 폴백: 하드코딩
+        setClassesList([
+          ...['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9'].map((n,i) => ({ className: n, isSpecial: false, sortOrder: i+1 })),
+          { className: '전담1', isSpecial: true, sortOrder: 10 },
+          { className: '전담2', isSpecial: true, sortOrder: 11 },
+          { className: '전담3', isSpecial: true, sortOrder: 12 },
+        ]);
+      });
+  }, []);
 
   const toggleClass = (cls) =>
     setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
@@ -326,7 +353,19 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   const handleSubSave = async (data) => { await saveSubstitute(data); await loadTimetable(); };
   const handleSubClear = async (data) => { await clearSubstitute(data); await loadTimetable(); };
 
-  const regularClasses = ALL_CLASSES.filter(c => !SPECIAL_CLASSES.includes(c));
+  // 전담 버튼 클릭: 강조 토글
+  const handleSpecialFocus = (cls) => {
+    if (focusedTeacher?.className === cls.className) {
+      setFocusedTeacher(null); // 다시 클릭 시 해제
+    } else {
+      setFocusedTeacher({ className: cls.className, teacherName: cls.teacherName });
+      // 해당 전담 클래스를 선택 목록에 추가 (시간표에 표시되게)
+      if (!selectedClasses.includes(cls.className)) {
+        setSelectedClasses(prev => [...prev, cls.className]);
+      }
+    }
+  };
+
   const weekLabel = weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난 주' : weekOffset === 1 ? '다음 주'
     : `${weekDates[0].month}/${weekDates[0].date}~${weekDates[4].month}/${weekDates[4].date}`;
 
@@ -348,23 +387,42 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
             );
           })}
           <span className="selector-divider" />
-          {SPECIAL_CLASSES.map(cls => {
-            const color = colorMap[cls];
-            const active = selectedClasses.includes(cls);
+          {specialClasses.map(cls => {
+            const color = colorMap[cls.className];
+            const active = selectedClasses.includes(cls.className);
+            const focused = focusedTeacher?.className === cls.className;
+            // 표시 이름: className 그대로 (관리자가 '체육1'로 입력했으면 '체육1' 표시)
+            const displayName = cls.className;
             return (
-              <button key={cls} className={`class-btn special${active ? ' active' : ''}`}
+              <button key={cls.className}
+                className={`class-btn special${active ? ' active' : ''}${focused ? ' focused' : ''}`}
                 style={active && color
-                  ? { backgroundColor: '#fff', color: color.border_color, borderColor: color.border_color, borderWidth: '2px' }
+                  ? { backgroundColor: focused ? color.border_color : '#fff',
+                      color: focused ? '#fff' : color.border_color,
+                      borderColor: color.border_color, borderWidth: '2px' }
                   : { borderColor: color?.border_color || '#aaa', color: color?.border_color || '#666' }}
-                onClick={() => toggleClass(cls)}>{cls}</button>
+                onClick={() => handleSpecialFocus(cls)}
+                title={cls.teacherName ? `${displayName} (${cls.teacherName})` : displayName}
+              >{displayName}</button>
             );
           })}
         </div>
         <div className="selector-actions">
-          <button className="sel-icon-btn" title="전체 선택" onClick={() => setSelectedClasses([...ALL_CLASSES])}>☑</button>
-          <button className="sel-icon-btn" title="전체 해제" onClick={() => setSelectedClasses([])}>☐</button>
+          <button className="sel-icon-btn" title="전체 선택" onClick={() => setSelectedClasses([...allClassNames])}>☑</button>
+          <button className="sel-icon-btn" title="전체 해제" onClick={() => { setSelectedClasses([]); setFocusedTeacher(null); }}>☐</button>
         </div>
       </div>
+
+      {/* 전담 강조 중 안내 배너 */}
+      {focusedTeacher && (
+        <div className="focus-banner">
+          <span>
+            🔍 <strong>{focusedTeacher.className}</strong>
+            {focusedTeacher.teacherName && ` · ${focusedTeacher.teacherName}`} 교사 시간 강조 중
+          </span>
+          <button className="focus-banner-close" onClick={() => setFocusedTeacher(null)}>✕ 해제</button>
+        </div>
+      )}
 
       {/* 시간표 그리드 */}
       <div className="timetable-container">
@@ -414,11 +472,19 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                       onClick={() => !isNoSchoolDay && handleCellClick(dayIdx, period)}
                     >
                       <div className={`cell-chips${cellEntries.length >= 5 ? ' cell-chips-compact' : ''}`}>
-                        {cellEntries.map(e => (
-                          <CellChip key={e.id} entry={e} colorMap={colorMap}
-                            compact={cellEntries.length >= 5}
-                            onClick={isNoSchoolDay ? null : handleChipClick} />
-                        ))}
+                        {cellEntries.map(e => {
+                          // focusedTeacher가 있으면 해당 교사 칩만 강조, 나머지는 dim
+                          const isDimmed = focusedTeacher
+                            ? !(e.teacher_name && focusedTeacher.teacherName &&
+                                e.teacher_name === focusedTeacher.teacherName)
+                            : false;
+                          return (
+                            <CellChip key={e.id} entry={e} colorMap={colorMap}
+                              compact={cellEntries.length >= 5}
+                              dimmed={isDimmed}
+                              onClick={isNoSchoolDay ? null : handleChipClick} />
+                          );
+                        })}
                         {adminMode && selectedClasses.length === 1 && cellEntries.length === 0 && !isNoSchoolDay && (
                           <div className="cell-add-hint">+</div>
                         )}
