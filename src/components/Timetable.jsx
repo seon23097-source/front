@@ -50,6 +50,7 @@ function normalizeEntry(e) {
     apply_date: e.applyDate ?? e.apply_date ?? null,
     is_substitute: e.isSubstitute ?? e.is_substitute ?? false,
     substitute_from: e.substituteFrom ?? e.substitute_from ?? null,
+    original_teacher_name: e.originalTeacherName ?? e.original_teacher_name ?? null,
   };
 }
 
@@ -83,7 +84,7 @@ function CellChip({ entry, colorMap, onClick }) {
       ) : (
         <>
           <span className="chip-initial">{getInitial(entry.subject)}</span>
-          {entry.teacher_name && <span className="chip-teacher">{entry.teacher_name[0]}</span>}
+          {entry.teacher_name && <span className="chip-teacher">{entry.teacher_name}</span>}
         </>
       )}
     </div>
