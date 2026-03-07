@@ -272,48 +272,44 @@ html, body, #root {
 .timetable-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
+  height: 100%;
 }
 
 /* ── Class Selector ─────────────────────────────────── */
+/* ── Class Selector (compact single row) ────────────── */
 .class-selector {
   background: var(--surface);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  padding: 14px 18px;
+  padding: 8px 12px;
   box-shadow: var(--shadow-sm);
   display: flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-}
-
-.selector-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.selector-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
 }
 
 .selector-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
+  flex: 1;
+  align-items: center;
+}
+
+.selector-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 .class-btn {
   font-family: 'Noto Sans KR', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 20px;
   border: 1.5px solid;
   background: transparent;
@@ -321,100 +317,56 @@ html, body, #root {
   transition: all 0.15s;
   line-height: 1.5;
 }
-.class-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.class-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.10); }
 .class-btn.active { font-weight: 600; }
 
 .selector-actions {
   display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-.sel-all, .sel-none {
-  font-family: 'Noto Sans KR', sans-serif;
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.sel-all:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-.sel-none:hover { border-color: var(--danger); color: var(--danger); background: #fff5f6; }
-
-/* ── Legend ─────────────────────────────────────────── */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--surface);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.legend-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-/* ── Week Navigation ────────────────────────────────── */
-.week-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-}
-
-.week-nav-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  font-size: 20px;
+.sel-icon-btn {
+  font-size: 18px;
   line-height: 1;
-  color: var(--text);
+  background: none;
+  border: none;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
 }
-.week-nav-btn:hover { background: var(--surface2); }
+.sel-icon-btn:hover { background: var(--surface2); color: var(--text); }
 
-.week-nav-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  min-width: 60px;
+/* ── 교시칸 내 주차 네비게이션 ──────────────────────── */
+.th-period-nav {
+  padding: 4px 2px !important;
+  vertical-align: middle;
+}
+.week-nav-arrow {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.15s;
   text-align: center;
 }
-
-.week-nav-today {
-  background: none;
-  border: 1px solid var(--primary, #6366f1);
-  color: var(--primary, #6366f1);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
+.week-nav-arrow:hover { color: var(--text); }
+.week-nav-label-sm {
+  display: block;
+  font-size: 9px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+  padding: 1px 0;
 }
-.week-nav-today:hover { background: var(--primary, #6366f1); color: #fff; }
 
 /* ── Timetable Container ────────────────────────────── */
 .timetable-container {

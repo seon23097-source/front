@@ -9,23 +9,14 @@ const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 const ALL_CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9','전담1','전담2','전담3'];
 const SPECIAL_CLASSES = ['전담1','전담2','전담3'];
 
-// 로컬 날짜를 YYYY-MM-DD로 변환 (toISOString은 UTC 변환으로 KST에서 하루 밀림)
-function toLocalDateStr(d) {
+export function toLocalDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-function getWeekDates(mondayBase) {
-  return Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(mondayBase);
-    d.setDate(mondayBase.getDate() + i);
-    return { month: d.getMonth() + 1, date: d.getDate(), full: toLocalDateStr(d) };
-  });
-}
-
-function getThisMonday() {
+export function getThisMonday() {
   const today = new Date();
   const dow = today.getDay();
   const diff = dow === 0 ? 1 : dow === 6 ? 2 : 1 - dow;
@@ -33,6 +24,14 @@ function getThisMonday() {
   monday.setDate(today.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
   return monday;
+}
+
+export function getWeekDates(mondayBase) {
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(mondayBase);
+    d.setDate(mondayBase.getDate() + i);
+    return { month: d.getMonth() + 1, date: d.getDate(), full: toLocalDateStr(d) };
+  });
 }
 
 function getInitial(subject) {
@@ -62,7 +61,6 @@ function normalizeEntry(e) {
   };
 }
 
-// 칩 컴포넌트 — 보결이면 '보' + substituteFrom 반 표시
 function CellChip({ entry, colorMap, onClick }) {
   if (!entry) return null;
   const color = colorMap[entry.class_name];
@@ -77,7 +75,7 @@ function CellChip({ entry, colorMap, onClick }) {
 
   return (
     <div
-      className={`cell-chip ${isSub ? 'cell-chip-substitute' : ''}`}
+      className={`cell-chip${isSub ? ' cell-chip-substitute' : ''}`}
       style={style}
       onClick={() => onClick && onClick(entry)}
       title={isSub
@@ -99,7 +97,6 @@ function CellChip({ entry, colorMap, onClick }) {
   );
 }
 
-// 보결 모달
 function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
   const [freeTeachers, setFreeTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,12 +115,9 @@ function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
     setSaving(true);
     try {
       await onSave({
-        class_name: entry.class_name,
-        day_of_week: entry.day_of_week,
-        period: entry.period,
-        apply_date: applyDate,
-        substitute_class: selected.className,
-        substitute_teacher: selected.teacherName,
+        class_name: entry.class_name, day_of_week: entry.day_of_week,
+        period: entry.period, apply_date: applyDate,
+        substitute_class: selected.className, substitute_teacher: selected.teacherName,
       });
       onClose();
     } finally { setSaving(false); }
@@ -132,12 +126,7 @@ function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
   const handleClear = async () => {
     setSaving(true);
     try {
-      await onClear({
-        class_name: entry.class_name,
-        day_of_week: entry.day_of_week,
-        period: entry.period,
-        apply_date: applyDate,
-      });
+      await onClear({ class_name: entry.class_name, day_of_week: entry.day_of_week, period: entry.period, apply_date: applyDate });
       onClose();
     } finally { setSaving(false); }
   };
@@ -151,21 +140,15 @@ function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <p className="sub-modal-info">
-            <strong>{entry.subject}</strong> 수업의 보결 교사를 선택하세요.
-          </p>
-          {loading ? (
-            <div className="sub-loading">빈 교사 확인 중...</div>
-          ) : freeTeachers.length === 0 ? (
-            <div className="sub-empty">해당 교시에 수업 없는 교사가 없습니다.</div>
-          ) : (
+          <p className="sub-modal-info"><strong>{entry.subject}</strong> 수업의 보결 교사를 선택하세요.</p>
+          {loading ? <div className="sub-loading">빈 교사 확인 중...</div>
+          : freeTeachers.length === 0 ? <div className="sub-empty">해당 교시에 수업 없는 교사가 없습니다.</div>
+          : (
             <div className="sub-teacher-list">
               {freeTeachers.map(t => (
-                <button
-                  key={t.className}
-                  className={`sub-teacher-btn ${selected?.className === t.className ? 'selected' : ''}`}
-                  onClick={() => setSelected(t)}
-                >
+                <button key={t.className}
+                  className={`sub-teacher-btn${selected?.className === t.className ? ' selected' : ''}`}
+                  onClick={() => setSelected(t)}>
                   <span className="sub-class">{t.className}</span>
                   {t.teacherName && <span className="sub-name">{t.teacherName}</span>}
                 </button>
@@ -174,9 +157,7 @@ function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
           )}
         </div>
         <div className="modal-footer">
-          {entry.is_substitute && (
-            <button className="btn-delete" onClick={handleClear} disabled={saving}>보결 해제</button>
-          )}
+          {entry.is_substitute && <button className="btn-delete" onClick={handleClear} disabled={saving}>보결 해제</button>}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
           <button className="btn-save" onClick={handleSave} disabled={saving || !selected}>
@@ -188,7 +169,6 @@ function SubstituteModal({ entry, applyDate, onSave, onClear, onClose }) {
   );
 }
 
-// 기존 편집 모달 (관리자용)
 function EditModal({ cell, colorMap, onSave, onDelete, onClose }) {
   const [subject, setSubject] = useState(cell.entry?.subject || '');
   const [teacher, setTeacher] = useState(cell.entry?.teacher_name || '');
@@ -236,7 +216,8 @@ function EditModal({ cell, colorMap, onSave, onDelete, onClose }) {
   );
 }
 
-export default function Timetable({ adminMode = false }) {
+// weekOffset을 외부에서 제어할 수 있도록 prop으로 받거나 내부 state 사용
+export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   const [selectedClasses, setSelectedClasses] = useState(['4-1']);
   const [entries, setEntries] = useState([]);
   const [colorMap, setColorMap] = useState({});
@@ -245,7 +226,13 @@ export default function Timetable({ adminMode = false }) {
   const [subCell, setSubCell] = useState(null);
   const [error, setError] = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [events, setEvents] = useState([]); // 행사/공휴일
+  const [events, setEvents] = useState([]);
+
+  const changeWeekOffset = (val) => {
+    const next = typeof val === 'function' ? val(weekOffset) : val;
+    setWeekOffset(next);
+    onWeekOffsetChange && onWeekOffsetChange(next);
+  };
 
   const currentMonday = (() => {
     const base = getThisMonday();
@@ -255,12 +242,11 @@ export default function Timetable({ adminMode = false }) {
   const weekDates = getWeekDates(currentMonday);
   const weekDateSet = new Set(weekDates.map(d => d.full));
 
-  // 날짜별 이벤트 매핑: { 'YYYY-MM-DD': [{ name, type, isNoSchool }] }
+  // 날짜별 이벤트 매핑
   const dayEventMap = {};
   events.forEach(ev => {
     const start = ev.startDate;
     const end = ev.endDate || ev.startDate;
-    // 이 주의 날짜들과 겹치는 날 매핑
     weekDates.forEach(wd => {
       if (wd.full >= start && wd.full <= end) {
         if (!dayEventMap[wd.full]) dayEventMap[wd.full] = [];
@@ -269,7 +255,6 @@ export default function Timetable({ adminMode = false }) {
     });
   });
 
-  // isNoSchool 날짜 집합
   const noSchoolDateSet = new Set(
     Object.entries(dayEventMap)
       .filter(([, evs]) => evs.some(e => e.isNoSchool))
@@ -294,8 +279,7 @@ export default function Timetable({ adminMode = false }) {
 
   const loadTimetable = useCallback(async () => {
     if (!selectedClasses.length) { setEntries([]); return; }
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const data = await fetchTimetableByClasses(selectedClasses);
       setEntries(data.map(normalizeEntry));
@@ -305,17 +289,12 @@ export default function Timetable({ adminMode = false }) {
 
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
-  useEffect(() => {
-    fetchEvents().then(setEvents).catch(() => setEvents([]));
-  }, []);
+  useEffect(() => { fetchEvents().then(setEvents).catch(() => setEvents([])); }, []);
 
   const toggleClass = (cls) =>
     setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
 
-  // 이번 주 날짜에 맞는 항목만 필터
-  const filteredEntries = entries.filter(e =>
-    !e.apply_date || weekDateSet.has(e.apply_date)
-  );
+  const filteredEntries = entries.filter(e => !e.apply_date || weekDateSet.has(e.apply_date));
 
   const lookup = {};
   filteredEntries.forEach(e => {
@@ -324,12 +303,10 @@ export default function Timetable({ adminMode = false }) {
     lookup[key].push(e);
   });
 
-  // 칩 클릭: 관리자 모드 → 편집 모달, 일반 모드 → 보결 모달
   const handleChipClick = (entry) => {
     if (adminMode) {
       setEditCell({ class_name: entry.class_name, day: entry.day_of_week, period: entry.period, entry });
     } else {
-      // 보결 모달: applyDate가 있는 항목만 (날짜 특정 가능한 경우)
       if (entry.apply_date) setSubCell(entry);
     }
   };
@@ -344,86 +321,48 @@ export default function Timetable({ adminMode = false }) {
   };
 
   const handleSave = async (data) => { await upsertEntry(data); await loadTimetable(); };
-  const handleDelete = async (cls, day, period, applyDate = null) => {
-    await deleteEntry(cls, day, period, applyDate);
-    await loadTimetable();
-  };
+  const handleDelete = async (cls, day, period, applyDate = null) => { await deleteEntry(cls, day, period, applyDate); await loadTimetable(); };
   const handleSubSave = async (data) => { await saveSubstitute(data); await loadTimetable(); };
   const handleSubClear = async (data) => { await clearSubstitute(data); await loadTimetable(); };
 
   const regularClasses = ALL_CLASSES.filter(c => !SPECIAL_CLASSES.includes(c));
-  const specialClasses = SPECIAL_CLASSES;
-
   const weekLabel = weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난 주' : weekOffset === 1 ? '다음 주'
-    : `${weekDates[0].month}/${weekDates[0].date} ~ ${weekDates[4].month}/${weekDates[4].date}`;
+    : `${weekDates[0].month}/${weekDates[0].date}~${weekDates[4].month}/${weekDates[4].date}`;
 
   return (
     <div className="timetable-wrapper">
-      {/* 반 선택 */}
-      <div className="class-selector">
-        <div className="selector-group">
-          <div className="selector-label">4학년 반</div>
-          <div className="selector-chips">
-            {regularClasses.map(cls => {
-              const color = colorMap[cls];
-              const active = selectedClasses.includes(cls);
-              return (
-                <button key={cls} className={`class-btn ${active ? 'active' : ''}`}
-                  style={active && color ? { backgroundColor: color.bg_color, color: color.text_color, borderColor: color.bg_color }
-                    : { borderColor: color?.bg_color || '#ddd', color: color?.bg_color || '#666' }}
-                  onClick={() => toggleClass(cls)}>{cls}</button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="selector-group">
-          <div className="selector-label">전담 교사</div>
-          <div className="selector-chips">
-            {specialClasses.map(cls => {
-              const color = colorMap[cls];
-              const active = selectedClasses.includes(cls);
-              return (
-                <button key={cls} className={`class-btn special ${active ? 'active' : ''}`}
-                  style={active && color ? { backgroundColor: '#ffffff', color: color.border_color, borderColor: color.border_color, borderWidth: '2px' }
-                    : { borderColor: color?.border_color || '#aaa', color: color?.border_color || '#666' }}
-                  onClick={() => toggleClass(cls)}>{cls}</button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="selector-actions">
-          <button className="sel-all" onClick={() => setSelectedClasses([...ALL_CLASSES])}>전체 선택</button>
-          <button className="sel-none" onClick={() => setSelectedClasses([])}>전체 해제</button>
-        </div>
-      </div>
 
-      {/* 범례 */}
-      {selectedClasses.length > 0 && (
-        <div className="legend">
-          {selectedClasses.map(cls => {
+      {/* 반 선택 — 컴팩트 1줄 */}
+      <div className="class-selector">
+        <div className="selector-chips">
+          {regularClasses.map(cls => {
             const color = colorMap[cls];
-            if (!color) return null;
-            const isSpecial = SPECIAL_CLASSES.includes(cls);
+            const active = selectedClasses.includes(cls);
             return (
-              <div key={cls} className="legend-item">
-                <div className="legend-dot" style={isSpecial
-                  ? { backgroundColor: '#fff', border: `2px solid ${color.border_color}` }
-                  : { backgroundColor: color.bg_color }} />
-                <span style={{ color: isSpecial ? color.border_color : color.bg_color }}>{cls}</span>
-              </div>
+              <button key={cls} className={`class-btn${active ? ' active' : ''}`}
+                style={active && color
+                  ? { backgroundColor: color.bg_color, color: color.text_color, borderColor: color.bg_color }
+                  : { borderColor: color?.bg_color || '#ddd', color: color?.bg_color || '#666' }}
+                onClick={() => toggleClass(cls)}>{cls}</button>
+            );
+          })}
+          <span className="selector-divider" />
+          {SPECIAL_CLASSES.map(cls => {
+            const color = colorMap[cls];
+            const active = selectedClasses.includes(cls);
+            return (
+              <button key={cls} className={`class-btn special${active ? ' active' : ''}`}
+                style={active && color
+                  ? { backgroundColor: '#fff', color: color.border_color, borderColor: color.border_color, borderWidth: '2px' }
+                  : { borderColor: color?.border_color || '#aaa', color: color?.border_color || '#666' }}
+                onClick={() => toggleClass(cls)}>{cls}</button>
             );
           })}
         </div>
-      )}
-
-      {/* 주차 네비게이션 */}
-      <div className="week-nav">
-        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o - 1)}>‹</button>
-        <span className="week-nav-label">{weekLabel}</span>
-        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o + 1)}>›</button>
-        {weekOffset !== 0 && (
-          <button className="week-nav-today" onClick={() => setWeekOffset(0)}>오늘</button>
-        )}
+        <div className="selector-actions">
+          <button className="sel-icon-btn" title="전체 선택" onClick={() => setSelectedClasses([...ALL_CLASSES])}>☑</button>
+          <button className="sel-icon-btn" title="전체 해제" onClick={() => setSelectedClasses([])}>☐</button>
+        </div>
       </div>
 
       {/* 시간표 그리드 */}
@@ -433,7 +372,14 @@ export default function Timetable({ adminMode = false }) {
         <table className="timetable-grid">
           <thead>
             <tr>
-              <th className="th-period">교시</th>
+              {/* 교시 칸에 주차 네비게이션 통합 */}
+              <th className="th-period th-period-nav">
+                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o - 1)}>‹</button>
+                <span className="week-nav-label-sm" title={weekLabel}>
+                  {weekOffset === 0 ? '이번' : weekOffset === -1 ? '지난' : weekOffset === 1 ? '다음' : `${weekDates[0].month}/${weekDates[0].date}`}
+                </span>
+                <button className="week-nav-arrow" onClick={() => changeWeekOffset(o => o + 1)}>›</button>
+              </th>
               {DAYS.map((d, i) => {
                 const dateStr = weekDates[i].full;
                 const dayEvs = dayEventMap[dateStr] || [];
@@ -443,10 +389,7 @@ export default function Timetable({ adminMode = false }) {
                     <span className="th-day-name">{d}</span>
                     <span className="th-day-date">{weekDates[i].month}/{weekDates[i].date}</span>
                     {dayEvs.map((ev, ei) => (
-                      <span
-                        key={ei}
-                        className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}
-                      >
+                      <span key={ei} className={`th-event-label${ev.type === 'holiday' ? ' th-event-holiday' : ''}`}>
                         {ev.name}
                       </span>
                     ))}
@@ -471,12 +414,8 @@ export default function Timetable({ adminMode = false }) {
                     >
                       <div className="cell-chips">
                         {cellEntries.map(e => (
-                          <CellChip
-                            key={e.id}
-                            entry={e}
-                            colorMap={colorMap}
-                            onClick={isNoSchoolDay ? null : handleChipClick}
-                          />
+                          <CellChip key={e.id} entry={e} colorMap={colorMap}
+                            onClick={isNoSchoolDay ? null : handleChipClick} />
                         ))}
                         {adminMode && selectedClasses.length === 1 && cellEntries.length === 0 && !isNoSchoolDay && (
                           <div className="cell-add-hint">+</div>
@@ -491,21 +430,13 @@ export default function Timetable({ adminMode = false }) {
         </table>
       </div>
 
-      {/* 관리자 편집 모달 */}
       {editCell && (
         <EditModal cell={editCell} colorMap={colorMap}
           onSave={handleSave} onDelete={handleDelete} onClose={() => setEditCell(null)} />
       )}
-
-      {/* 보결 모달 */}
       {subCell && (
-        <SubstituteModal
-          entry={subCell}
-          applyDate={subCell.apply_date}
-          onSave={handleSubSave}
-          onClear={handleSubClear}
-          onClose={() => setSubCell(null)}
-        />
+        <SubstituteModal entry={subCell} applyDate={subCell.apply_date}
+          onSave={handleSubSave} onClear={handleSubClear} onClose={() => setSubCell(null)} />
       )}
     </div>
   );

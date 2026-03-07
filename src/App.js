@@ -10,6 +10,7 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
   const [pwError, setPwError] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0); // 시간표-안내장 주차 공유
 
   const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
 
@@ -56,10 +57,10 @@ export default function App() {
         {/* 왼쪽: 시간표 + 하단 안내장/제출마감 */}
         <div className="main-left">
           <div className="timetable-section">
-            <Timetable adminMode={adminMode} />
+            <Timetable adminMode={adminMode} onWeekOffsetChange={setWeekOffset} />
           </div>
           <div className="notice-section">
-            <NoticeSection adminMode={adminMode} />
+            <NoticeSection adminMode={adminMode} weekOffset={weekOffset} />
           </div>
         </div>
 
