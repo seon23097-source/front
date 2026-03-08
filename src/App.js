@@ -2,6 +2,9 @@ import { useState } from 'react';
 import Timetable from './components/Timetable';
 import AdminPanel from './components/AdminPanel';
 import ResourcesPanel from './components/ResourcesPanel';
+import DeadlineBoard from './components/DeadlineBoard';
+import NoticeBoard from './components/NoticeBoard';
+import ChatRoom from './components/ChatRoom';
 import './App.css';
 
 export default function App() {
@@ -10,7 +13,8 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
   const [pwError, setPwError] = useState(false);
-  const [weekOffset, setWeekOffset] = useState(0); // 시간표-안내장 주차 공유
+  const [activeTab, setActiveTab] = useState('home');
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
 
@@ -34,7 +38,23 @@ export default function App() {
             <span className="logo-text">4학년 통합시간표</span>
           </div>
           <span className="header-sub">4-1 ~ 4-9 · 전담교사</span>
+
+          <nav className="header-tabs">
+            <button
+              className={`header-tab${activeTab === 'home' ? ' active' : ''}`}
+              onClick={() => setActiveTab('home')}
+            >
+              🏠 홈
+            </button>
+            <button
+              className={`header-tab${activeTab === 'timetable' ? ' active' : ''}`}
+              onClick={() => setActiveTab('timetable')}
+            >
+              📋 통합시간표
+            </button>
+          </nav>
         </div>
+
         <div className="header-right">
           {adminMode ? (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -54,17 +74,35 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {/* 왼쪽: 시간표 (notice행 포함) */}
-        <div className="main-left">
-          <div className="timetable-section">
+        {activeTab === 'home' && (
+          <div className="home-layout">
+            {/* 좌측: 제출마감(상) + 공지안내장(하) */}
+            <div className="home-left">
+              <div className="home-panel">
+                <DeadlineBoard adminMode={adminMode} />
+              </div>
+              <div className="home-panel">
+                <NoticeBoard adminMode={adminMode} />
+              </div>
+            </div>
+
+            {/* 가운데: 채팅방 */}
+            <div className="home-center">
+              <ChatRoom />
+            </div>
+
+            {/* 우측: 학년자료실 */}
+            <div className="home-right">
+              <ResourcesPanel adminMode={adminMode} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'timetable' && (
+          <div className="timetable-fullscreen">
             <Timetable adminMode={adminMode} onWeekOffsetChange={setWeekOffset} />
           </div>
-        </div>
-
-        {/* 오른쪽: 학년자료실 */}
-        <div className="main-right">
-          <ResourcesPanel adminMode={adminMode} />
-        </div>
+        )}
       </main>
 
       {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
