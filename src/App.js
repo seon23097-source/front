@@ -46,7 +46,10 @@ export default function App() {
   useEffect(() => {
     Promise.all([reloadNoticeItems(), reloadBoardNotices()])
       .finally(() => setDataLoaded(true));
-  }, []);
+    // Timetable에서 안내장/제출마감 등록·삭제 시 갱신
+    window.addEventListener('timetableItemsChanged', reloadNoticeItems);
+    return () => window.removeEventListener('timetableItemsChanged', reloadNoticeItems);
+  }, [reloadNoticeItems]);
 
   const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
 

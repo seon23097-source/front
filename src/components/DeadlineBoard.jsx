@@ -6,7 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_URL || '';
 async function apiGetSubmitMap() {
   try {
     const res = await fetch(`${BASE_URL}/api/deadline/submit`);
-    if (!res.ok) return null;  // 실패 시 null 반환
+    if (!res.ok) return null;
     const rows = await res.json();
     const map = {};
     rows.forEach(r => {
@@ -14,7 +14,7 @@ async function apiGetSubmitMap() {
       map[r.item_id][r.class_name] = r.submitted;
     });
     return map;
-  } catch { return null; }  // 실패 시 null 반환
+  } catch { return null; }
 }
 
 async function apiToggle(itemId, className) {
@@ -121,15 +121,17 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
   const [loadingMap, setLoadingMap] = useState(true);
 
   // submit map은 여기서 직접 로드 (notice items는 props로 받음)
-  const loadSubmitMap = useCallback(async () => {
+  const loadSubmitMap = useCallback(async (isInitial = false) => {
     const map = await apiGetSubmitMap();
-    if (map !== null) setSubmitMap(map);  // 실패 시 기존 값 유지
-    setLoadingMap(false);
+    if (map !== null) {
+      setSubmitMap(map);
+    }
+    if (isInitial) setLoadingMap(false);
   }, []);
 
   useEffect(() => {
-    loadSubmitMap();
-    const interval = setInterval(loadSubmitMap, 30000);
+    loadSubmitMap(true);  // 초기 로드
+    const interval = setInterval(() => loadSubmitMap(false), 10000);  // 10초마다 폴링
     return () => clearInterval(interval);
   }, [loadSubmitMap]);
 
@@ -141,12 +143,18 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
     });
 
   const handleToggle = async (itemId, cls) => {
-    // 낙관적 업데이트만 - 서버 응답으로 재덮어쓰기 안 함
     const next = !submitMap[itemId]?.[cls];
+    // 1. 낙관적 업데이트
     setSubmitMap(prev => ({
       ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: next }
     }));
-    await apiToggle(itemId, cls);
+    // 2. 서버 전송 후 결과로 정확히 동기화
+    const result = await apiToggle(itemId, cls);
+    if (result !== null) {
+      setSubmitMap(prev => ({
+        ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: result.submitted }
+      }));
+    }
   };
 
   const handleDelete = async (id) => {
