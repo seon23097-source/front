@@ -139,7 +139,30 @@ function FileAttachField({ files, onChange }) {
 }
 
 // ── 안내장/제출마감 상세보기 모달 ────────────────────
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel} style={{ zIndex: 4000 }}>
+      <div className="modal-box confirm-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: '4px solid var(--danger)' }}>
+          <span className="modal-class">삭제 확인</span>
+          <button className="modal-close" onClick={onCancel}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{message}</div>
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onCancel}>취소</button>
+          <button className="btn-delete" style={{ background: 'var(--danger)', color: '#fff', border: 'none' }}
+            onClick={onConfirm}>🗑️ 삭제</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
+  const [confirmId, setConfirmId] = useState(null);
   const typeLabel = type === 'notice' ? '안내장' : '제출마감';
   const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
 
@@ -179,7 +202,7 @@ function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
               )}
               {adminMode && (
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => setConfirmId(item.id)}
                   style={{ marginTop: 6, background: 'none', border: '1px solid #ffd0d3', borderRadius: 4, fontSize: 11, color: 'var(--danger)', cursor: 'pointer', padding: '2px 8px' }}
                 >🗑️ 삭제</button>
               )}
@@ -194,6 +217,13 @@ function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
           <button className="btn-cancel" onClick={onClose}>닫기</button>
         </div>
       </div>
+      {confirmId && (
+        <ConfirmModal
+          message="이 항목을 삭제할까요?"
+          onConfirm={() => { handleDelete(confirmId); setConfirmId(null); }}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -24,6 +24,29 @@ async function apiDeleteItem(itemId) {
   try { await fetch(`${BASE_URL}/api/deadline/submit/${itemId}`, { method: 'DELETE' }); } catch {}
 }
 
+
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-box confirm-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: '4px solid var(--danger)' }}>
+          <span className="modal-class">삭제 확인</span>
+          <button className="modal-close" onClick={onCancel}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{message}</div>
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onCancel}>취소</button>
+          <button className="btn-delete" style={{ background: 'var(--danger)', color: '#fff', border: 'none' }}
+            onClick={onConfirm}>🗑️ 삭제</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function daysLeft(dateStr) {
   if (!dateStr) return null;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -32,6 +55,7 @@ function daysLeft(dateStr) {
 }
 
 function DetailModal({ item, submitMap, onToggle, onClose, onDelete, adminMode }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const d = daysLeft(item.date);
   const color = d === null ? '#888' : d < 0 ? '#aaa' : d <= 1 ? '#FF4757' : d <= 3 ? '#FFA502' : '#2ED573';
   const label = d === null ? '-' : d < 0 ? '마감' : d === 0 ? 'D-Day' : `D-${d}`;
@@ -90,7 +114,14 @@ function DetailModal({ item, submitMap, onToggle, onClose, onDelete, adminMode }
         </div>
         <div className="modal-footer">
           {adminMode && (
-            <button className="btn-delete" onClick={() => { onDelete(item.id); onClose(); }}>🗑️ 삭제</button>
+            <button className="btn-delete" onClick={() => setConfirmDelete(true)}>🗑️ 삭제</button>
+          )}
+          {confirmDelete && (
+            <ConfirmModal
+              message={`"${item.title}" 항목을 삭제할까요?`}
+              onConfirm={() => { onDelete(item.id); onClose(); }}
+              onCancel={() => setConfirmDelete(false)}
+            />
           )}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>닫기</button>

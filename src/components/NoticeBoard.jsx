@@ -12,6 +12,29 @@ function saveBoardNotices(items) {
   window.dispatchEvent(new Event('boardNoticesChanged'));
 }
 
+
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-box confirm-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: '4px solid var(--danger)' }}>
+          <span className="modal-class">삭제 확인</span>
+          <button className="modal-close" onClick={onCancel}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{message}</div>
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onCancel}>취소</button>
+          <button className="btn-delete" style={{ background: 'var(--danger)', color: '#fff', border: 'none' }}
+            onClick={onConfirm}>🗑️ 삭제</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FileAttachField({ files, onChange }) {
   return (
     <label>
@@ -147,6 +170,7 @@ function AddNoticeModal({ onClose }) {
 }
 
 function DetailModal({ item, onClose, onDelete, adminMode }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isNotice = item.type === 'notice';
   const accentColor = isNotice ? '#3D5AFE' : '#FF6B35';
   const isTimetable = String(item.id).startsWith('tt_');
@@ -191,7 +215,14 @@ function DetailModal({ item, onClose, onDelete, adminMode }) {
         </div>
         <div className="modal-footer">
           {adminMode && !isTimetable && (
-            <button className="btn-delete" onClick={() => { onDelete(item.id); onClose(); }}>🗑️ 삭제</button>
+            <button className="btn-delete" onClick={() => setConfirmDelete(true)}>🗑️ 삭제</button>
+          )}
+          {confirmDelete && (
+            <ConfirmModal
+              message={`"${item.display}" 항목을 삭제할까요?`}
+              onConfirm={() => { onDelete(item.id); onClose(); }}
+              onCancel={() => setConfirmDelete(false)}
+            />
           )}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>닫기</button>
@@ -205,6 +236,7 @@ export default function NoticeBoard({ adminMode }) {
   const [items, setItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [confirmItem, setConfirmItem] = useState(null);
 
   const loadItems = () => {
     const notices = loadBoardNotices();
@@ -283,7 +315,7 @@ export default function NoticeBoard({ adminMode }) {
                   </div>
                   {adminMode && !String(item.id).startsWith('tt_') && (
                     <button
-                      onClick={e => { e.stopPropagation(); handleDelete(item.id); }}
+                      onClick={e => { e.stopPropagation(); setConfirmItem(item); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#ccc', padding: '0 2px', lineHeight: 1 }}
                       title="삭제"
                     >✕</button>
@@ -296,6 +328,13 @@ export default function NoticeBoard({ adminMode }) {
       </div>
 
       {showModal && <AddNoticeModal onClose={() => setShowModal(false)} />}
+      {confirmItem && (
+        <ConfirmModal
+          message={`"${confirmItem.display}" 항목을 삭제할까요?`}
+          onConfirm={() => { handleDelete(confirmItem.id); setConfirmItem(null); }}
+          onCancel={() => setConfirmItem(null)}
+        />
+      )}
       {selected && (
         <DetailModal
           item={selected}

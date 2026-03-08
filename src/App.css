@@ -1927,3 +1927,12 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .dark .ap-nav-item.active { background: var(--accent-light) !important; }
 .dark table { border-color: var(--border) !important; }
 .dark .notice-cell { color: var(--text) !important; }
+
+/* ── 삭제 확인 모달 ─────────────────────────────── */
+.confirm-modal { max-width: 340px; }
+.confirm-modal .btn-delete {
+  background: var(--danger) !important;
+  color: #fff !important;
+  border: none !important;
+}
+.confirm-modal .btn-delete:hover { opacity: 0.85; }
