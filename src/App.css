@@ -37,6 +37,34 @@
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.50);
 }
 
+/* 다크모드 흰색 제거 */
+.dark input,
+.dark textarea,
+.dark select {
+  background: var(--surface2) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.dark .deadline-cls-check { background: var(--surface2) !important; }
+.dark .modal-box { background: var(--surface) !important; }
+.dark .modal-header { background: var(--surface2) !important; border-color: var(--border) !important; }
+.dark .modal-body label { color: var(--text-muted); }
+.dark .modal-footer { background: var(--surface) !important; border-color: var(--border) !important; }
+.dark .notice-cell { background: var(--surface) !important; color: var(--text) !important; }
+.dark .timetable-wrapper { background: var(--surface) !important; }
+.dark th, .dark td { border-color: var(--border) !important; }
+.dark .board-panel { background: var(--surface) !important; }
+.dark .resources-panel { background: var(--surface) !important; }
+.dark .chat-panel,
+.dark .chat-messages,
+.dark .chat-input-area { background: var(--surface) !important; }
+.dark .chat-input { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.dark .resource-item { background: var(--surface) !important; }
+.dark .resource-item:hover { background: var(--surface2) !important; }
+.dark .btn-save { background: var(--accent) !important; }
+.dark .btn-cancel { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.dark .notice-placeholder { color: var(--text-muted) !important; }
+
 /* 다크모드 전환 버튼 */
 .dark-toggle-btn {
   width: 32px;

@@ -43,6 +43,13 @@ export default function App() {
     <div className={`app${darkMode ? " dark" : ""}`}>
       <header className="app-header">
         <div className="header-left">
+          <button
+            className="dark-toggle-btn"
+            onClick={toggleDark}
+            title={darkMode ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
           <nav className="header-tabs">
             <button
               className={`header-tab${activeTab === 'home' ? ' active' : ''}`}
@@ -60,13 +67,6 @@ export default function App() {
         </div>
 
         <div className="header-right">
-          <button
-            className="dark-toggle-btn"
-            onClick={toggleDark}
-            title={darkMode ? "라이트 모드로 전환" : "다크 모드로 전환"}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
           {adminMode ? (
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="admin-badge active" onClick={() => setShowAdminPanel(true)}>
