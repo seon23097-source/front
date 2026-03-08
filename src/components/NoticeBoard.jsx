@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { refreshNoticeItems, loadNoticeItems } from './Timetable';
-import { fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
+import { loadNoticeItems } from './Timetable';
 
 // ── 공통 유틸 ──────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel }) {
@@ -48,7 +47,7 @@ function FileAttachField({ files, onChange }) {
 }
 
 // ── 등록 모달 ──────────────────────────────────────────
-function AddNoticeModal({ onClose, onSaved }) {
+function AddNoticeModal({ onClose }) {
   const [title, setTitle]   = useState('');
   const [type, setType]     = useState('notice');
   const [pinned, setPinned] = useState(false);
@@ -66,13 +65,17 @@ function AddNoticeModal({ onClose, onSaved }) {
     const display = type === 'announcement'
       ? `[${month} 배부] ${title.trim()}`
       : `[공지] ${title.trim()}`;
-    await createBoardNotice({
-      type, title: title.trim(), display,
+    const BOARD_KEY = 'schosche_board_notices';
+    const existing = (() => { try { return JSON.parse(localStorage.getItem(BOARD_KEY) || '[]'); } catch { return []; } })();
+    const item = {
+      id: Date.now(), type, title: title.trim(), display,
       content: content.trim(),
       pinned: type === 'notice' ? pinned : false,
       fileNames: files.map(f => f.name),
-    });
-    await onSaved();
+      createdAt: Date.now(),
+    };
+    localStorage.setItem(BOARD_KEY, JSON.stringify([item, ...existing]));
+    window.dispatchEvent(new Event('boardNoticesChanged'));
     setSaving(false);
     onClose();
   };
@@ -218,12 +221,13 @@ export default function NoticeBoard({ adminMode }) {
   const [confirmItem, setConfirmItem] = useState(null);
   const [loading, setLoading]     = useState(true);
 
-  const loadAll = async () => {
-    const [boardNotices, timetableItems] = await Promise.all([
-      fetchBoardNotices(),
-      refreshNoticeItems(),
-    ]);
-    const timetableNotices = (timetableItems || loadNoticeItems())
+  const BOARD_KEY = 'schosche_board_notices';
+  const loadBoardNotices = () => { try { return JSON.parse(localStorage.getItem(BOARD_KEY) || '[]'); } catch { return []; } };
+  const saveBoardNotices = (items) => { localStorage.setItem(BOARD_KEY, JSON.stringify(items)); };
+
+  const loadAll = () => {
+    const boardNotices = loadBoardNotices();
+    const timetableNotices = loadNoticeItems()
       .filter(i => i.type === 'notice')
       .map(i => ({
         id: 'tt_' + i.id,
@@ -248,12 +252,16 @@ export default function NoticeBoard({ adminMode }) {
   useEffect(() => {
     loadAll();
     window.addEventListener('noticeItemsChanged', loadAll);
-    return () => window.removeEventListener('noticeItemsChanged', loadAll);
+    window.addEventListener('boardNoticesChanged', loadAll);
+    return () => {
+      window.removeEventListener('noticeItemsChanged', loadAll);
+      window.removeEventListener('boardNoticesChanged', loadAll);
+    };
   }, []);
 
-  const handleDelete = async (id) => {
-    await deleteBoardNotice(id);
-    await loadAll();
+  const handleDelete = (id) => {
+    saveBoardNotices(loadBoardNotices().filter(i => i.id !== id));
+    loadAll();
   };
 
   const catColor = { notice: '#3D5AFE', announcement: '#FF6B35' };
@@ -302,7 +310,7 @@ export default function NoticeBoard({ adminMode }) {
         </div>
       </div>
 
-      {showModal && <AddNoticeModal onClose={() => setShowModal(false)} onSaved={loadAll} />}
+      {showModal && <AddNoticeModal onClose={() => setShowModal(false)} />}
       {selected && (
         <DetailModal item={selected} adminMode={adminMode}
           onClose={() => setSelected(null)} onDelete={handleDelete} />

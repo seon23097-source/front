@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { loadNoticeItems, refreshNoticeItems } from './Timetable';
-import { deleteNoticeItem } from '../api/noticeApi';
+import { loadNoticeItems, saveNoticeItems } from './Timetable';
 
 const CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9'];
 const BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -139,8 +138,8 @@ export default function DeadlineBoard({ adminMode }) {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    const all = await refreshNoticeItems();
-    const deadlines = (all || loadNoticeItems()).filter(i => i.type === 'deadline');
+    const all = loadNoticeItems();
+    const deadlines = all.filter(i => i.type === 'deadline');
     deadlines.sort((a, b) => {
       const da = daysLeft(a.date);
       const db = daysLeft(b.date);
@@ -188,10 +187,10 @@ export default function DeadlineBoard({ adminMode }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    await deleteNoticeItem(id);
-    await apiDeleteItem(id); // 제출 체크 데이터도 정리
-    await loadAll();
+  const handleDelete = (id) => {
+    const all = loadNoticeItems();
+    saveNoticeItems(all.filter(i => i.id !== id));
+    apiDeleteItem(id);
   };
 
   if (loading) return (

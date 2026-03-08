@@ -4,7 +4,6 @@ import {
   getFreeTeachers, saveSubstitute, clearSubstitute, fetchEvents,
 } from '../api/timetable';
 import { getClasses } from '../api/admin';
-import { fetchNoticeItems, createNoticeItem, deleteNoticeItem } from '../api/noticeApi';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
@@ -18,19 +17,14 @@ function saveNoticesStorage(data) {
   localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(data));
 }
 
-// ── notice items: API 기반 ──────────────────────────────
-// 동기 호환용 캐시 (DeadlineBoard/NoticeBoard에서 동기로 읽는 곳 대비)
-let _noticeItemsCache = [];
-
-export function loadNoticeItems() { return _noticeItemsCache; }
-export function saveNoticeItems(items) {
-  _noticeItemsCache = items;
-  window.dispatchEvent(new Event('noticeItemsChanged'));
+const ITEMS_STORAGE_KEY = 'schosche_notice_items';
+export function loadNoticeItems() {
+  try { return JSON.parse(localStorage.getItem(ITEMS_STORAGE_KEY) || '[]'); }
+  catch { return []; }
 }
-export async function refreshNoticeItems() {
-  _noticeItemsCache = await fetchNoticeItems();
+export function saveNoticeItems(items) {
+  localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(items));
   window.dispatchEvent(new Event('noticeItemsChanged'));
-  return _noticeItemsCache;
 }
 
 export function toLocalDateStr(d) {
@@ -174,9 +168,9 @@ function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
   const typeLabel = type === 'notice' ? '안내장' : '제출마감';
   const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
 
-  const handleDelete = async (id) => {
-    await deleteNoticeItem(id);
-    await refreshNoticeItems();
+  const handleDelete = (id) => {
+    const all = loadNoticeItems();
+    saveNoticeItems(all.filter(i => i.id !== id));
   };
 
   return (
@@ -248,20 +242,20 @@ function NoticeItemModal({ dateStr, type, onClose }) {
   const [submitPlace, setSubmitPlace] = useState('');
   const [files, setFiles] = useState([]);
 
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    if (!title.trim() || saving) return;
-    setSaving(true);
-    const saved = await createNoticeItem({
+  const handleSave = () => {
+    if (!title.trim()) return;
+    const items = loadNoticeItems();
+    const newItem = {
+      id: Date.now(),
       type,
       title: title.trim(),
       date: dateStr,
       displayDate,
       submitPlace: submitPlace.trim(),
       fileNames: files.map(f => f.name),
-    });
-    if (saved) await refreshNoticeItems();
-    setSaving(false);
+      createdAt: Date.now(),
+    };
+    saveNoticeItems([newItem, ...items]);
     onClose();
   };
 
@@ -521,7 +515,6 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
 
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
-  useEffect(() => { refreshNoticeItems(); }, []);
   useEffect(() => { fetchEvents().then(setEvents).catch(() => setEvents([])); }, []);
   useEffect(() => {
     getClasses()
