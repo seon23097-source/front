@@ -108,7 +108,16 @@ export default function DeadlineBoard({ adminMode }) {
 
   const loadAll = useCallback(async () => {
     const all = loadNoticeItems();
-    setItems(all.filter(i => i.type === 'deadline').sort((a, b) => b.createdAt - a.createdAt));
+    const deadlines = all.filter(i => i.type === 'deadline');
+    deadlines.sort((a, b) => {
+      const da = daysLeft(a.date);
+      const db = daysLeft(b.date);
+      // 이미 지난 것(음수)은 맨 아래, null도 아래
+      const ra = da === null ? 9999 : da < 0 ? 9998 + (-da) : da;
+      const rb = db === null ? 9999 : db < 0 ? 9998 + (-db) : db;
+      return ra - rb;
+    });
+    setItems(deadlines);
     const map = await apiGetSubmitMap();
     setSubmitMap(map);
     setLoading(false);

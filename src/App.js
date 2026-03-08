@@ -9,6 +9,16 @@ import './App.css';
 
 export default function App() {
   const [adminMode, setAdminMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('schosche_dark') === '1');
+
+  // 다크모드 적용
+  const toggleDark = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('schosche_dark', next ? '1' : '0');
+      return next;
+    });
+  };
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
@@ -30,7 +40,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app${darkMode ? " dark" : ""}`}>
       <header className="app-header">
         <div className="header-left">
           <nav className="header-tabs">
@@ -50,6 +60,13 @@ export default function App() {
         </div>
 
         <div className="header-right">
+          <button
+            className="dark-toggle-btn"
+            onClick={toggleDark}
+            title={darkMode ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
           {adminMode ? (
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="admin-badge active" onClick={() => setShowAdminPanel(true)}>
