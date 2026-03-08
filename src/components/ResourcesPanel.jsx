@@ -207,6 +207,9 @@ export default function ResourcesPanel({ adminMode }) {
           <span className="resources-title">학년자료실</span>
         </div>
         <div className="resources-header-actions">
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            200MB 이하
+          </span>
           <button className="res-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             {uploading ? '⏳' : '⬆️'} 업로드
           </button>
