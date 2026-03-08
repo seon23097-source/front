@@ -66,9 +66,7 @@ export default function ChatRoom() {
 
     socket.on('connect', () => {
       setConnected(true);
-      // 저장된 이름이 있으면 바로 join
-      const savedName = localStorage.getItem(NAME_KEY);
-      if (savedName) socket.emit('join', { name: savedName });
+      // join은 아래 useEffect에서 처리
     });
 
     socket.on('disconnect', () => setConnected(false));
@@ -87,6 +85,14 @@ export default function ChatRoom() {
     return () => socket.disconnect();
   }, []);
 
+  // 연결되면 저장된 이름으로 join (이름 있을 때만)
+  useEffect(() => {
+    if (connected) {
+      const savedName = localStorage.getItem(NAME_KEY);
+      if (savedName) socketRef.current?.emit('join', { name: savedName });
+    }
+  }, [connected]);
+
   // 이름 미설정 시 최초 모달
   useEffect(() => {
     if (!localStorage.getItem(NAME_KEY)) setShowNameModal(true);
@@ -104,12 +110,15 @@ export default function ChatRoom() {
     setName(newName);
     localStorage.setItem(NAME_KEY, newName);
     setShowNameModal(false);
-    if (isFirst) {
-      socket.emit('join', { name: newName });
-    } else {
+    // connected useEffect가 join을 처리하므로 여기선 rename만
+    if (!isFirst) {
       socket.emit('rename', { name: newName });
     }
-  }, [name]);
+    // isFirst이고 이미 connected면 join 전송
+    if (isFirst && connected) {
+      socket.emit('join', { name: newName });
+    }
+  }, [name, connected]);
 
   const handleSend = useCallback(() => {
     const socket = socketRef.current;
