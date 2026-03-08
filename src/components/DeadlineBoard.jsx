@@ -7,13 +7,9 @@ async function apiGetSubmitMap() {
   try {
     const res = await fetch(`${BASE_URL}/api/deadline/submit`);
     if (!res.ok) return null;
-    const rows = await res.json();
-    const map = {};
-    rows.forEach(r => {
-      if (!map[r.item_id]) map[r.item_id] = {};
-      map[r.item_id][r.class_name] = r.submitted;
-    });
-    return map;
+    const data = await res.json();
+    // 서버 응답이 이미 {itemId: {className: bool}} 형태
+    return data;
   } catch { return null; }
 }
 
@@ -62,7 +58,7 @@ function DetailModal({ item, submitMap, onToggle, onClose, onDelete, adminMode }
   const [confirmDelete, setConfirmDelete] = useState(false);
   const d = daysLeft(item.date);
   const classes = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9'];
-  const submitted = classes.filter(c => submitMap[item.id]?.[c]).length;
+  const submitted = classes.filter(c => submitMap[String(item.id)]?.[c]).length;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -81,12 +77,12 @@ function DetailModal({ item, submitMap, onToggle, onClose, onDelete, adminMode }
               <label key={cls} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 gap: 3, padding: '6px 4px', borderRadius: 6,
-                background: submitMap[item.id]?.[cls] ? 'rgba(61,90,254,0.12)' : 'var(--surface2)',
-                border: `1.5px solid ${submitMap[item.id]?.[cls] ? '#3D5AFE' : 'var(--border)'}`,
+                background: submitMap[String(item.id)]?.[cls] ? 'rgba(61,90,254,0.12)' : 'var(--surface2)',
+                border: `1.5px solid ${submitMap[String(item.id)]?.[cls] ? '#3D5AFE' : 'var(--border)'}`,
                 cursor: 'pointer', fontSize: 12, fontWeight: 600,
               }}>
                 <span>{cls}</span>
-                <input type="checkbox" checked={!!submitMap[item.id]?.[cls]}
+                <input type="checkbox" checked={!!submitMap[String(item.id)]?.[cls]}
                   onChange={() => onToggle(item.id, cls)} style={{ cursor: 'pointer' }} />
               </label>
             ))}
@@ -143,16 +139,17 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
     });
 
   const handleToggle = async (itemId, cls) => {
-    const next = !submitMap[itemId]?.[cls];
+    const key = String(itemId);
+    const next = !submitMap[key]?.[cls];
     // 1. 낙관적 업데이트
     setSubmitMap(prev => ({
-      ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: next }
+      ...prev, [key]: { ...(prev[key] || {}), [cls]: next }
     }));
     // 2. 서버 전송 후 결과로 정확히 동기화
     const result = await apiToggle(itemId, cls);
     if (result !== null) {
       setSubmitMap(prev => ({
-        ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: result.submitted }
+        ...prev, [key]: { ...(prev[key] || {}), [cls]: result.submitted }
       }));
     }
   };
@@ -184,7 +181,7 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
           ) : deadlines.map(item => {
             const d = daysLeft(item.date);
             const classes = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9'];
-            const submitted = classes.filter(c => submitMap[item.id]?.[c]).length;
+            const submitted = classes.filter(c => submitMap[String(item.id)]?.[c]).length;
             const dBadge = d === null ? '' : d === 0 ? 'D-Day' : d > 0 ? `D-${d}` : `D+${-d}`;
             const badgeColor = d === null ? '#888' : d === 0 ? '#e53935' : d > 0 && d <= 3 ? '#FF6B35' : d > 0 ? '#3D5AFE' : '#888';
             return (
@@ -203,9 +200,9 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
                   <tbody>
                     <tr>{classes.map(c => (
                       <td key={c}>
-                        <label className={`deadline-cls-check${submitMap[item.id]?.[c] ? ' done' : ''}`}
+                        <label className={`deadline-cls-check${submitMap[String(item.id)]?.[c] ? ' done' : ''}`}
                           onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={!!submitMap[item.id]?.[c]}
+                          <input type="checkbox" checked={!!submitMap[String(item.id)]?.[c]}
                             onChange={() => handleToggle(item.id, c)} />
                         </label>
                       </td>
