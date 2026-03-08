@@ -1,34 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { io } from 'socket.io-client';
 
-const NAME_KEY   = 'schosche_chat_name';
-const MSG_KEY    = 'schosche_chat_messages';
-const ONLINE_KEY = 'schosche_chat_online';
-const HEARTBEAT_INTERVAL = 8000;   // 8초마다 heartbeat
-const ONLINE_TIMEOUT     = 20000;  // 20초 응답 없으면 오프라인
-
-function loadMessages() {
-  try { return JSON.parse(localStorage.getItem(MSG_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveMessages(msgs) {
-  localStorage.setItem(MSG_KEY, JSON.stringify(msgs.slice(-200))); // 최대 200개
-  window.dispatchEvent(new Event('chatUpdated'));
-}
-function loadOnline() {
-  try { return JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}'); }
-  catch { return {}; }
-}
-function saveOnline(data) {
-  localStorage.setItem(ONLINE_KEY, JSON.stringify(data));
-  window.dispatchEvent(new Event('chatOnlineUpdated'));
-}
+const NAME_KEY = 'schosche_chat_name';
+const WS_URL = (process.env.REACT_APP_API_URL || '').replace(/^http/, 'ws') || '';
 
 function formatTime(ts) {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-// 이름 설정 모달
 function NameModal({ current, onSave }) {
   const [val, setVal] = useState(current || '');
   return (
@@ -53,11 +33,9 @@ function NameModal({ current, onSave }) {
         </div>
         <div className="modal-footer">
           <div style={{ flex: 1 }} />
-          <button
-            className="btn-save"
-            onClick={() => val.trim() && onSave(val.trim())}
-            disabled={!val.trim()}
-          >확인</button>
+          <button className="btn-save" onClick={() => val.trim() && onSave(val.trim())} disabled={!val.trim()}>
+            확인
+          </button>
         </div>
       </div>
     </div>
@@ -65,66 +43,53 @@ function NameModal({ current, onSave }) {
 }
 
 export default function ChatRoom() {
-  const [messages, setMessages]     = useState(loadMessages);
-  const [name, setName]             = useState(() => localStorage.getItem(NAME_KEY) || '');
-  const [text, setText]             = useState('');
+  const [messages, setMessages]         = useState([]);
+  const [name, setName]                 = useState(() => localStorage.getItem(NAME_KEY) || '');
+  const [text, setText]                 = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
-  const [onlineUsers, setOnlineUsers]     = useState({});
-  const bottomRef  = useRef(null);
-  const myId = useRef(Math.random().toString(36).slice(2)); // 탭별 고유 ID
+  const [onlineUsers, setOnlineUsers]   = useState([]);
+  const [connected, setConnected]       = useState(false);
 
-  // 이름 미설정 시 최초 1회 모달
+  const socketRef = useRef(null);
+  const bottomRef = useRef(null);
+  const nameRef   = useRef(name); // 클로저에서 최신 name 참조용
+
+  useEffect(() => { nameRef.current = name; }, [name]);
+
+  // ── 소켓 연결 ──────────────────────────────────────
+  useEffect(() => {
+    const socket = io(
+      (process.env.REACT_APP_API_URL || window.location.origin) + '/chat',
+      { transports: ['websocket', 'polling'], withCredentials: true }
+    );
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setConnected(true);
+      // 저장된 이름이 있으면 바로 join
+      const savedName = localStorage.getItem(NAME_KEY);
+      if (savedName) socket.emit('join', { name: savedName });
+    });
+
+    socket.on('disconnect', () => setConnected(false));
+
+    // 접속 시 기존 메시지 히스토리
+    socket.on('history', (msgs) => setMessages(msgs));
+
+    // 새 메시지 수신
+    socket.on('message', (msg) => {
+      setMessages(prev => [...prev, msg].slice(-200));
+    });
+
+    // 접속자 목록 갱신
+    socket.on('onlineUsers', (users) => setOnlineUsers(users));
+
+    return () => socket.disconnect();
+  }, []);
+
+  // 이름 미설정 시 최초 모달
   useEffect(() => {
     if (!localStorage.getItem(NAME_KEY)) setShowNameModal(true);
-  }, []);
-
-  // 메시지 변경 감지 (다른 탭/브라우저)
-  useEffect(() => {
-    const refresh = () => setMessages(loadMessages());
-    window.addEventListener('chatUpdated', refresh);
-    window.addEventListener('storage', refresh);
-    return () => {
-      window.removeEventListener('chatUpdated', refresh);
-      window.removeEventListener('storage', refresh);
-    };
-  }, []);
-
-  // 접속자 heartbeat
-  useEffect(() => {
-    if (!name) return;
-    const beat = () => {
-      const online = loadOnline();
-      online[myId.current] = { name, ts: Date.now() };
-      saveOnline(online);
-    };
-    beat();
-    const timer = setInterval(beat, HEARTBEAT_INTERVAL);
-    return () => {
-      clearInterval(timer);
-      const online = loadOnline();
-      delete online[myId.current];
-      saveOnline(online);
-    };
-  }, [name]);
-
-  // 접속자 목록 갱신
-  useEffect(() => {
-    const refresh = () => {
-      const online = loadOnline();
-      const now = Date.now();
-      const active = {};
-      Object.entries(online).forEach(([id, info]) => {
-        if (now - info.ts < ONLINE_TIMEOUT) active[id] = info;
-      });
-      setOnlineUsers(active);
-    };
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    window.addEventListener('chatOnlineUpdated', refresh);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('chatOnlineUpdated', refresh);
-    };
   }, []);
 
   // 스크롤 하단 유지
@@ -132,23 +97,28 @@ export default function ChatRoom() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSaveName = (newName) => {
+  const handleSaveName = useCallback((newName) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const isFirst = !name;
     setName(newName);
     localStorage.setItem(NAME_KEY, newName);
     setShowNameModal(false);
-  };
+    if (isFirst) {
+      socket.emit('join', { name: newName });
+    } else {
+      socket.emit('rename', { name: newName });
+    }
+  }, [name]);
 
-  const handleSend = () => {
-    if (!text.trim() || !name) return;
-    const msgs = loadMessages();
-    const newMsg = { id: Date.now(), sender: name, text: text.trim(), ts: Date.now(), myId: myId.current };
-    saveMessages([...msgs, newMsg]);
-    setMessages([...msgs, newMsg]);
+  const handleSend = useCallback(() => {
+    const socket = socketRef.current;
+    if (!text.trim() || !name || !socket) return;
+    socket.emit('message', { sender: name, text: text.trim() });
     setText('');
-  };
+  }, [text, name]);
 
-  const activeUsers = Object.values(onlineUsers);
-  const otherUsers = activeUsers.filter(u => u.name !== name);
+  const mySocketId = socketRef.current?.id;
 
   return (
     <>
@@ -157,25 +127,24 @@ export default function ChatRoom() {
           <span style={{ fontSize: 16 }}>💬</span>
           <span className="chat-title">선생님 채팅방</span>
           <div className="chat-online-wrap">
-            {activeUsers.length > 0 && (
-              <span className="chat-online">● {activeUsers.length}명 접속중</span>
+            {onlineUsers.length > 0 && (
+              <span className="chat-online">● {onlineUsers.length}명 접속중</span>
+            )}
+            {!connected && (
+              <span style={{ fontSize: 10, color: 'var(--danger)', fontWeight: 600 }}>● 연결 끊김</span>
             )}
           </div>
-          <button
-            className="chat-name-btn"
-            onClick={() => setShowNameModal(true)}
-            title="이름 변경"
-          >
+          <button className="chat-name-btn" onClick={() => setShowNameModal(true)} title="이름 변경">
             👤 {name || '이름 설정'}
           </button>
         </div>
 
         {/* 접속자 목록 */}
-        {activeUsers.length > 0 && (
+        {onlineUsers.length > 0 && (
           <div className="chat-online-list">
-            {activeUsers.map((u, i) => (
-              <span key={i} className={`chat-online-chip${u.name === name ? ' me' : ''}`}>
-                {u.name === name ? '🟢 나' : `🔵 ${u.name}`}
+            {onlineUsers.map((u) => (
+              <span key={u.socketId} className={`chat-online-chip${u.socketId === mySocketId ? ' me' : ''}`}>
+                {u.socketId === mySocketId ? '🟢 나' : `🔵 ${u.name}`}
               </span>
             ))}
           </div>
@@ -188,7 +157,7 @@ export default function ChatRoom() {
             </div>
           )}
           {messages.map(msg => {
-            const isMe = msg.myId === myId.current || msg.sender === name;
+            const isMe = msg.sender === name;
             return (
               <div key={msg.id} className={`chat-msg ${isMe ? 'mine' : 'theirs'}`}>
                 {!isMe && <div className="chat-msg-sender">{msg.sender}</div>}
@@ -207,13 +176,13 @@ export default function ChatRoom() {
             value={text}
             onChange={e => setText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            disabled={!name}
+            disabled={!name || !connected}
             maxLength={300}
           />
           <button
             className="chat-send-btn"
             onClick={handleSend}
-            disabled={!text.trim() || !name}
+            disabled={!text.trim() || !name || !connected}
           >전송</button>
         </div>
       </div>
