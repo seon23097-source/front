@@ -226,7 +226,7 @@ export default function NoticeBoard({ adminMode }) {
     const boardNotices = boardFetched ?? [];
     // timetable notice items
     const itemsFetched = await fetchNoticeItems();
-    if (itemsFetched) _setItemsCache(itemsFetched);
+    if (itemsFetched) _setItemsCache(itemsFetched, true); // silent
     const timetableNotices = loadNoticeItems()
       .filter(i => i.type === 'notice')
       .map(i => ({

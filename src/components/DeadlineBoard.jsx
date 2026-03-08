@@ -138,10 +138,12 @@ export default function DeadlineBoard({ adminMode }) {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadAll = useCallback(async () => {
+  // notice items 로드 (이벤트 발생 없이 items state만 갱신)
+  const loadItems = useCallback(async () => {
     const fetched = await fetchNoticeItems();
-    if (fetched) _setItemsCache(fetched);
-    const all = loadNoticeItems();
+    // _setItemsCache 대신 직접 cache에 넣되 이벤트는 발생시키지 않음
+    if (fetched) _setItemsCache(fetched, true); // silent: 이벤트 없이 캐시만 갱신
+    const all = fetched ?? loadNoticeItems();
     const deadlines = all.filter(i => i.type === 'deadline');
     deadlines.sort((a, b) => {
       const da = daysLeft(a.date);
@@ -151,28 +153,33 @@ export default function DeadlineBoard({ adminMode }) {
       return ra - rb;
     });
     setItems(deadlines);
+  }, []);
+
+  // submit map만 갱신
+  const loadSubmitMap = useCallback(async () => {
     const map = await apiGetSubmitMap();
     setSubmitMap(map);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadAll();
-    window.addEventListener('noticeItemsChanged', loadAll);
-    return () => window.removeEventListener('noticeItemsChanged', loadAll);
-  }, [loadAll]);
+    (async () => {
+      await loadItems();
+      await loadSubmitMap();
+      setLoading(false);
+    })();
+  }, [loadItems, loadSubmitMap]);
 
-  // 30초마다 서버 현황 갱신 (다른 기기 변경 반영)
+  // noticeItemsChanged 이벤트 → items만 갱신 (submit map 건드리지 않음)
   useEffect(() => {
-    const interval = setInterval(async () => {
-      // API 응답 있을 때만 갱신
-      try {
-        const map = await apiGetSubmitMap();
-        if (map && Object.keys(map).length >= 0) setSubmitMap(map);
-      } catch {}
-    }, 30000);
+    window.addEventListener('noticeItemsChanged', loadItems);
+    return () => window.removeEventListener('noticeItemsChanged', loadItems);
+  }, [loadItems]);
+
+  // 30초마다 submit map만 갱신
+  useEffect(() => {
+    const interval = setInterval(loadSubmitMap, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadSubmitMap]);
 
   const handleToggle = async (itemId, cls) => {
     // 낙관적 업데이트 (즉각 UI 반응)
@@ -193,10 +200,9 @@ export default function DeadlineBoard({ adminMode }) {
   const handleDelete = async (id) => {
     try {
       await deleteNoticeItem(id);
-      _setItemsCache(loadNoticeItems().filter(i => i.id !== id));
       await apiDeleteItem(id);
     } catch(e) { console.error(e); }
-    await loadAll();
+    await loadItems();
   };
 
   if (loading) return (

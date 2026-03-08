@@ -21,9 +21,9 @@ function saveNoticesStorage(data) {
 // notice items 캐시 (API 응답을 메모리에 보관)
 let _itemsCache = [];
 export function loadNoticeItems() { return _itemsCache; }
-export function _setItemsCache(items) {
+export function _setItemsCache(items, silent = false) {
   _itemsCache = items;
-  window.dispatchEvent(new Event('noticeItemsChanged'));
+  if (!silent) window.dispatchEvent(new Event('noticeItemsChanged'));
 }
 
 export function toLocalDateStr(d) {
