@@ -6,7 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_URL || '';
 async function apiGetSubmitMap() {
   try {
     const res = await fetch(`${BASE_URL}/api/deadline/submit`);
-    if (!res.ok) return {};
+    if (!res.ok) return null;  // 실패 시 null 반환
     const rows = await res.json();
     const map = {};
     rows.forEach(r => {
@@ -14,7 +14,7 @@ async function apiGetSubmitMap() {
       map[r.item_id][r.class_name] = r.submitted;
     });
     return map;
-  } catch { return {}; }
+  } catch { return null; }  // 실패 시 null 반환
 }
 
 async function apiToggle(itemId, className) {
@@ -123,7 +123,7 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
   // submit map은 여기서 직접 로드 (notice items는 props로 받음)
   const loadSubmitMap = useCallback(async () => {
     const map = await apiGetSubmitMap();
-    setSubmitMap(map);
+    if (map !== null) setSubmitMap(map);  // 실패 시 기존 값 유지
     setLoadingMap(false);
   }, []);
 
@@ -141,15 +141,12 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
     });
 
   const handleToggle = async (itemId, cls) => {
+    // 낙관적 업데이트만 - 서버 응답으로 재덮어쓰기 안 함
+    const next = !submitMap[itemId]?.[cls];
     setSubmitMap(prev => ({
-      ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: !prev[itemId]?.[cls] }
+      ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: next }
     }));
-    const result = await apiToggle(itemId, cls);
-    if (result) {
-      setSubmitMap(prev => ({
-        ...prev, [itemId]: { ...(prev[itemId] || {}), [cls]: result.submitted }
-      }));
-    }
+    await apiToggle(itemId, cls);
   };
 
   const handleDelete = async (id) => {
@@ -191,16 +188,18 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
                 <div className="deadline-progress">
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{submitted}/{classes.length}반 제출</span>
                 </div>
-                <table className="deadline-check-table">
+                <table className="deadline-cls-table">
                   <thead>
-                    <tr>{classes.map(c => <th key={c}>{c}</th>)}</tr>
+                    <tr>{classes.map(c => <th key={c} style={{whiteSpace:"nowrap"}}>{c}</th>)}</tr>
                   </thead>
                   <tbody>
                     <tr>{classes.map(c => (
                       <td key={c}>
-                        <input type="checkbox" checked={!!submitMap[item.id]?.[c]}
-                          onChange={e => { e.stopPropagation(); handleToggle(item.id, c); }}
-                          onClick={e => e.stopPropagation()} />
+                        <label className={`deadline-cls-check${submitMap[item.id]?.[c] ? ' done' : ''}`}
+                          onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={!!submitMap[item.id]?.[c]}
+                            onChange={() => handleToggle(item.id, c)} />
+                        </label>
                       </td>
                     ))}</tr>
                   </tbody>
