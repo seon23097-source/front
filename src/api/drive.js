@@ -20,17 +20,38 @@ export const getDriveBreadcrumb = async (folderId = '') => {
 export const getDriveDownloadUrl = (fileId) =>
   `${BASE_URL}/api/drive/download/${fileId}`;
 
-/** 파일 업로드 */
-export const uploadDriveFile = async (file, folderId = '') => {
-  const formData = new FormData();
-  formData.append('file', file);
-  if (folderId) formData.append('folderId', folderId);
-  const res = await fetch(`${BASE_URL}/api/drive/upload`, {
-    method: 'POST',
-    body: formData,
+/** 파일 업로드 (진행률 콜백 지원) */
+export const uploadDriveFile = (file, folderId = '', onProgress) => {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folderId) formData.append('folderId', folderId);
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && onProgress) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        onProgress(percent);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch { resolve({}); }
+      } else {
+        reject(new Error(`업로드에 실패했습니다. (${xhr.status})`));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('네트워크 오류로 업로드에 실패했습니다.')));
+    xhr.addEventListener('timeout', () => reject(new Error('업로드 시간이 초과되었습니다.')));
+
+    xhr.timeout = 5 * 60 * 1000; // 5분
+    xhr.open('POST', `${BASE_URL}/api/drive/upload`);
+    xhr.send(formData);
   });
-  if (!res.ok) throw new Error('업로드에 실패했습니다.');
-  return res.json();
 };
 
 /** 폴더 생성 */

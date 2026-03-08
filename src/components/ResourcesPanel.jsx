@@ -88,6 +88,7 @@ export default function ResourcesPanel({ adminMode }) {
   const [newFolderName, setNewFolderName] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0~100
   const fileInputRef = useRef(null);
 
   const loadFiles = useCallback(async (folderId = currentFolderId) => {
@@ -171,13 +172,19 @@ export default function ResourcesPanel({ adminMode }) {
   const handleUpload = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      for (const file of Array.from(fileList)) {
-        await uploadDriveFile(file, currentFolderId);
+      const files = Array.from(fileList);
+      for (let i = 0; i < files.length; i++) {
+        await uploadDriveFile(files[i], currentFolderId, (percent) => {
+          // 여러 파일일 경우 전체 진행률 계산
+          const overall = Math.round(((i + percent / 100) / files.length) * 100);
+          setUploadProgress(overall);
+        });
       }
       loadFiles(currentFolderId);
     } catch (e) { alert(e.message); }
-    finally { setUploading(false); }
+    finally { setUploading(false); setUploadProgress(0); }
   };
 
   // 드래그앤드롭
@@ -361,7 +368,12 @@ export default function ResourcesPanel({ adminMode }) {
         {/* 업로드 중 오버레이 */}
         {uploading && (
           <div className="res-drag-overlay">
-            <div>⏳ 업로드 중...</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ marginBottom: 10 }}>⏳ 업로드 중... {uploadProgress}%</div>
+              <div style={{ width: 220, height: 8, background: 'rgba(255,255,255,0.3)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#4caf50', borderRadius: 4, transition: 'width 0.2s' }} />
+              </div>
+            </div>
           </div>
         )}
       </div>
