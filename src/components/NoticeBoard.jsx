@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { loadNoticeItems, _setItemsCache } from './Timetable';
-import { fetchNoticeItems, fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
+import { loadNoticeItems } from './Timetable';
+import { fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
 
 // ── 공통 유틸 ──────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel }) {
@@ -75,7 +75,7 @@ function AddNoticeModal({ onClose }) {
       });
     } catch(e) { console.error(e); }
     setSaving(false);
-    window.dispatchEvent(new Event('noticeItemsChanged'));
+    window.dispatchEvent(new Event('boardChanged'));
     onClose();
   };
 
@@ -224,9 +224,7 @@ export default function NoticeBoard({ adminMode }) {
     // board notices
     const boardFetched = await fetchBoardNotices();
     const boardNotices = boardFetched ?? [];
-    // timetable notice items
-    const itemsFetched = await fetchNoticeItems();
-    if (itemsFetched) _setItemsCache(itemsFetched, true); // silent
+    // timetable notice items (캐시에서만 읽음 - fetchNoticeItems 호출 안 함)
     const timetableNotices = loadNoticeItems()
       .filter(i => i.type === 'notice')
       .map(i => ({
@@ -251,8 +249,14 @@ export default function NoticeBoard({ adminMode }) {
 
   useEffect(() => {
     loadAll();
-    window.addEventListener('noticeItemsChanged', loadAll);
-    return () => window.removeEventListener('noticeItemsChanged', loadAll);
+    // board 자체 변경 이벤트
+    window.addEventListener('boardChanged', loadAll);
+    // 시간표에서 안내장 등록 시 반영 (timetableItemsChanged는 별도)
+    window.addEventListener('timetableItemsChanged', loadAll);
+    return () => {
+      window.removeEventListener('boardChanged', loadAll);
+      window.removeEventListener('timetableItemsChanged', loadAll);
+    };
   }, []);
 
   const handleDelete = async (id) => {

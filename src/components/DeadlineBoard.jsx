@@ -169,10 +169,10 @@ export default function DeadlineBoard({ adminMode }) {
     })();
   }, [loadItems, loadSubmitMap]);
 
-  // noticeItemsChanged 이벤트 → items만 갱신 (submit map 건드리지 않음)
+  // timetableItemsChanged 이벤트만 구독 (notice items 변경 시 갱신)
   useEffect(() => {
-    window.addEventListener('noticeItemsChanged', loadItems);
-    return () => window.removeEventListener('noticeItemsChanged', loadItems);
+    window.addEventListener('timetableItemsChanged', loadItems);
+    return () => window.removeEventListener('timetableItemsChanged', loadItems);
   }, [loadItems]);
 
   // 30초마다 submit map만 갱신

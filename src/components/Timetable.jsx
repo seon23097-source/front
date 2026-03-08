@@ -23,7 +23,7 @@ let _itemsCache = [];
 export function loadNoticeItems() { return _itemsCache; }
 export function _setItemsCache(items, silent = false) {
   _itemsCache = items;
-  if (!silent) window.dispatchEvent(new Event('noticeItemsChanged'));
+  if (!silent) window.dispatchEvent(new Event('timetableItemsChanged'));
 }
 
 export function toLocalDateStr(d) {
@@ -170,7 +170,7 @@ function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
   const handleDelete = async (id) => {
     try {
       await deleteNoticeItem(id);
-      _setItemsCache(loadNoticeItems().filter(i => i.id !== id));
+      _setItemsCache(loadNoticeItems().filter(i => i.id !== id), false);
     } catch(e) { console.error(e); }
   };
 
@@ -256,7 +256,7 @@ function NoticeItemModal({ dateStr, type, onClose }) {
         submitPlace: submitPlace.trim(),
         fileNames: files.map(f => f.name),
       });
-      _setItemsCache([saved, ...loadNoticeItems()]);
+      _setItemsCache([saved, ...loadNoticeItems()], false);
     } catch(e) { console.error(e); }
     setSaving(false);
     onClose();
@@ -519,7 +519,7 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
   useEffect(() => {
-    fetchNoticeItems().then(data => { if (data) _setItemsCache(data); });
+    fetchNoticeItems().then(data => { if (data) _setItemsCache(data, false); });
   }, []);
   useEffect(() => { fetchEvents().then(setEvents).catch(() => setEvents([])); }, []);
   useEffect(() => {
@@ -616,8 +616,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
       });
     };
     refresh();
-    window.addEventListener('noticeItemsChanged', refresh);
-    return () => window.removeEventListener('noticeItemsChanged', refresh);
+    window.addEventListener('timetableItemsChanged', refresh);
+    return () => window.removeEventListener('timetableItemsChanged', refresh);
   }, []);
 
   const noticeRows = [
