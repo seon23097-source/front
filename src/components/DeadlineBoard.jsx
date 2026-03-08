@@ -139,11 +139,9 @@ export default function DeadlineBoard({ adminMode }) {
   const [loading, setLoading] = useState(true);
 
   // notice items 로드 (이벤트 발생 없이 items state만 갱신)
-  const loadItems = useCallback(async () => {
-    const fetched = await fetchNoticeItems();
-    // _setItemsCache 대신 직접 cache에 넣되 이벤트는 발생시키지 않음
-    if (fetched) _setItemsCache(fetched, true); // silent: 이벤트 없이 캐시만 갱신
-    const all = fetched ?? loadNoticeItems();
+  const loadItems = useCallback(() => {
+    // 캐시에서만 읽음 - API 호출 없음
+    const all = loadNoticeItems();
     const deadlines = all.filter(i => i.type === 'deadline');
     deadlines.sort((a, b) => {
       const da = daysLeft(a.date);
@@ -163,11 +161,14 @@ export default function DeadlineBoard({ adminMode }) {
 
   useEffect(() => {
     (async () => {
-      await loadItems();
+      // notice items 초기 로드 (한 번만)
+      const fetched = await fetchNoticeItems();
+      if (fetched) _setItemsCache(fetched, true);
+      loadItems();
       await loadSubmitMap();
       setLoading(false);
     })();
-  }, [loadItems, loadSubmitMap]);
+  }, []); // eslint-disable-line
 
   // timetableItemsChanged 이벤트만 구독 (notice items 변경 시 갱신)
   useEffect(() => {
@@ -200,9 +201,9 @@ export default function DeadlineBoard({ adminMode }) {
   const handleDelete = async (id) => {
     try {
       await deleteNoticeItem(id);
+      _setItemsCache(loadNoticeItems().filter(i => i.id !== id), false);
       await apiDeleteItem(id);
     } catch(e) { console.error(e); }
-    await loadItems();
   };
 
   if (loading) return (

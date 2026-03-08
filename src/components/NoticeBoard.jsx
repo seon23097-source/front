@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { loadNoticeItems } from './Timetable';
 import { fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
 
@@ -220,7 +220,7 @@ export default function NoticeBoard({ adminMode }) {
   const [confirmItem, setConfirmItem] = useState(null);
   const [loading, setLoading]     = useState(true);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     // board notices
     const boardFetched = await fetchBoardNotices();
     const boardNotices = boardFetched ?? [];
@@ -245,7 +245,7 @@ export default function NoticeBoard({ adminMode }) {
     });
     setItems(all);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadAll();

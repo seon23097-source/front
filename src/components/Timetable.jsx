@@ -519,7 +519,7 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   useEffect(() => { loadColors(); }, [loadColors]);
   useEffect(() => { loadTimetable(); }, [loadTimetable]);
   useEffect(() => {
-    fetchNoticeItems().then(data => { if (data) _setItemsCache(data, false); });
+    fetchNoticeItems().then(data => { if (data) _setItemsCache(data, true); }); // 초기 로드는 silent
   }, []);
   useEffect(() => { fetchEvents().then(setEvents).catch(() => setEvents([])); }, []);
   useEffect(() => {
