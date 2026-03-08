@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Timetable from './components/Timetable';
 import AdminPanel from './components/AdminPanel';
 import ResourcesPanel from './components/ResourcesPanel';
@@ -6,6 +6,8 @@ import DeadlineBoard from './components/DeadlineBoard';
 import NoticeBoard from './components/NoticeBoard';
 import ChatRoom from './components/ChatRoom';
 import './App.css';
+import { fetchNoticeItems, fetchBoardNotices, createNoticeItem, createBoardNotice, deleteNoticeItem, deleteBoardNotice } from './api/noticeApi';
+import { _setItemsCache, loadNoticeItems } from './components/Timetable';
 
 export default function App() {
   const [adminMode, setAdminMode] = useState(false);
@@ -25,6 +27,26 @@ export default function App() {
   const [pwError, setPwError] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [weekOffset, setWeekOffset] = useState(0);
+
+  // ── 공유 데이터: App에서 한 번만 fetch ──────────────
+  const [noticeItems, setNoticeItems] = useState([]);
+  const [boardNotices, setBoardNotices] = useState([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  const reloadNoticeItems = useCallback(async () => {
+    const data = await fetchNoticeItems();
+    if (data) { _setItemsCache(data, true); setNoticeItems(data); }
+  }, []);
+
+  const reloadBoardNotices = useCallback(async () => {
+    const data = await fetchBoardNotices();
+    if (data) setBoardNotices(data);
+  }, []);
+
+  useEffect(() => {
+    Promise.all([reloadNoticeItems(), reloadBoardNotices()])
+      .finally(() => setDataLoaded(true));
+  }, []);
 
   const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
 
@@ -90,10 +112,10 @@ export default function App() {
             {/* 좌측: 제출마감(상) + 공지안내장(하) */}
             <div className="home-left">
               <div className="home-panel">
-                <DeadlineBoard adminMode={adminMode} />
+                <DeadlineBoard adminMode={adminMode} noticeItems={noticeItems} onReload={reloadNoticeItems} />
               </div>
               <div className="home-panel">
-                <NoticeBoard adminMode={adminMode} />
+                <NoticeBoard adminMode={adminMode} boardNotices={boardNotices} noticeItems={noticeItems} onReloadBoard={reloadBoardNotices} />
               </div>
             </div>
 
