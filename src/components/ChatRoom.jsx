@@ -82,6 +82,11 @@ export default function ChatRoom() {
     // 접속자 목록 갱신
     socket.on('onlineUsers', (users) => setOnlineUsers(users));
 
+    // 자정 채팅 초기화
+    socket.on('clearChat', () => {
+      setMessages([]);
+    });
+
     return () => socket.disconnect();
   }, []);
 

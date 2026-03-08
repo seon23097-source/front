@@ -131,12 +131,15 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
     return () => clearInterval(interval);
   }, [loadSubmitMap]);
 
-  const deadlines = [...noticeItems.filter(i => i.type === 'deadline')]
-    .sort((a, b) => {
-      const ra = (d => d === null ? 9999 : d < 0 ? 9998 - d : d)(daysLeft(a.date));
-      const rb = (d => d === null ? 9999 : d < 0 ? 9998 - d : d)(daysLeft(b.date));
-      return ra - rb;
-    });
+  const deadlines = [...noticeItems.filter(i => {
+    if (i.type !== 'deadline') return false;
+    const d = daysLeft(i.date);
+    return d === null || d >= 0; // 날짜 없거나 오늘 이후만 표시
+  })].sort((a, b) => {
+    const ra = (d => d === null ? 9999 : d)(daysLeft(a.date));
+    const rb = (d => d === null ? 9999 : d)(daysLeft(b.date));
+    return ra - rb;
+  });
 
   const handleToggle = async (itemId, cls) => {
     const key = String(itemId);

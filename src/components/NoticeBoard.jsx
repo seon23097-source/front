@@ -183,7 +183,14 @@ export default function NoticeBoard({ adminMode, boardNotices = [], noticeItems 
 
   // 시간표 안내장 + 게시판 공지 합산 (렌더링만, fetch 없음)
   const timetableNotices = noticeItems
-    .filter(i => i.type === 'notice')
+    .filter(i => {
+      if (i.type !== 'notice') return false;
+      if (!i.date) return true;
+      const d = new Date(i.date); d.setHours(0,0,0,0);
+      const today = new Date(); today.setHours(0,0,0,0);
+      // 배부일 기준 7일 이내만 표시
+      return (today - d) / 86400000 <= 7;
+    })
     .map(i => ({
       id: 'tt_' + i.id,
       type: 'announcement',
