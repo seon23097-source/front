@@ -146,25 +146,81 @@ function AddNoticeModal({ onClose }) {
   );
 }
 
+function DetailModal({ item, onClose, onDelete, adminMode }) {
+  const isNotice = item.type === 'notice';
+  const accentColor = isNotice ? '#3D5AFE' : '#FF6B35';
+  const isTimetable = String(item.id).startsWith('tt_');
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
+          <span className="modal-class">{isNotice ? '📢 공지' : '📄 안내장'}</span>
+          {item.pinned && <span style={{ fontSize: 11, color: accentColor, fontWeight: 700 }}>📍 고정</span>}
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>
+            {item.display}
+          </div>
+
+          {item.content && (
+            <div style={{
+              fontSize: 13, color: 'var(--text)', lineHeight: 1.7,
+              padding: '10px 12px', background: 'var(--surface2)',
+              borderRadius: 6, whiteSpace: 'pre-wrap', marginBottom: 8,
+            }}>
+              {item.content}
+            </div>
+          )}
+
+          {item.fileNames?.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.4px' }}>첨부파일</div>
+              {item.fileNames.map((name, i) => (
+                <div key={i} style={{
+                  fontSize: 12, padding: '5px 10px', background: 'var(--surface2)',
+                  borderRadius: 5, border: '1px solid var(--border)', marginBottom: 4,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  📎 {name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          {adminMode && !isTimetable && (
+            <button className="btn-delete" onClick={() => { onDelete(item.id); onClose(); }}>🗑️ 삭제</button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onClose}>닫기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NoticeBoard({ adminMode }) {
   const [items, setItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const loadItems = () => {
     const notices = loadBoardNotices();
-    // 안내장(type==='announcement')도 추가: Timetable에서 등록한 것
     const timetableNotices = loadNoticeItems()
       .filter(i => i.type === 'notice')
       .map(i => ({
         id: 'tt_' + i.id,
         type: 'announcement',
+        title: i.title,
         display: `[${i.displayDate} 배부] ${i.title}`,
+        fileNames: i.fileNames || [],
         pinned: false,
         createdAt: i.createdAt,
       }));
 
     const all = [...notices, ...timetableNotices];
-    // 상단고정 우선, 그 다음 최신순
     all.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -184,7 +240,6 @@ export default function NoticeBoard({ adminMode }) {
   }, []);
 
   const handleDelete = (id) => {
-    if (String(id).startsWith('tt_')) return; // 시간표 항목은 시간표에서 삭제
     const notices = loadBoardNotices();
     saveBoardNotices(notices.filter(i => i.id !== id));
   };
@@ -210,15 +265,25 @@ export default function NoticeBoard({ adminMode }) {
             items.map(item => {
               const color = item.type === 'notice' ? catColor.notice : catColor.announcement;
               return (
-                <div key={item.id} className="board-item">
-                  {item.pinned && <span style={{ fontSize: 10, marginRight: 2 }}>📍</span>}
+                <div
+                  key={item.id}
+                  className="board-item board-item-clickable"
+                  onClick={() => setSelected(item)}
+                >
+                  {item.pinned && <span style={{ fontSize: 10 }}>📍</span>}
                   <div className="board-item-dot" style={{ background: color }} />
                   <div className="board-item-content">
                     <div className="board-item-title">{item.display}</div>
+                    {(item.content || item.fileNames?.length > 0) && (
+                      <div className="board-item-meta">
+                        {item.content && <span>내용 있음 </span>}
+                        {item.fileNames?.length > 0 && <span>📎 {item.fileNames.length}개</span>}
+                      </div>
+                    )}
                   </div>
                   {adminMode && !String(item.id).startsWith('tt_') && (
                     <button
-                      onClick={() => handleDelete(item.id)}
+                      onClick={e => { e.stopPropagation(); handleDelete(item.id); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#ccc', padding: '0 2px', lineHeight: 1 }}
                       title="삭제"
                     >✕</button>
@@ -231,6 +296,14 @@ export default function NoticeBoard({ adminMode }) {
       </div>
 
       {showModal && <AddNoticeModal onClose={() => setShowModal(false)} />}
+      {selected && (
+        <DetailModal
+          item={selected}
+          adminMode={adminMode}
+          onClose={() => setSelected(null)}
+          onDelete={handleDelete}
+        />
+      )}
     </>
   );
 }

@@ -138,6 +138,66 @@ function FileAttachField({ files, onChange }) {
   );
 }
 
+// ── 안내장/제출마감 상세보기 모달 ────────────────────
+function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
+  const typeLabel = type === 'notice' ? '안내장' : '제출마감';
+  const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
+
+  const handleDelete = (id) => {
+    const all = loadNoticeItems();
+    saveNoticeItems(all.filter(i => i.id !== id));
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
+          <span className="modal-class">{typeLabel} 목록</span>
+          <span className="modal-slot">{items[0]?.date}</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ gap: 10 }}>
+          {items.map(item => (
+            <div key={item.id} style={{
+              padding: '10px 12px', background: 'var(--surface2)',
+              borderRadius: 8, border: '1px solid var(--border)',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                {item.title}
+              </div>
+              {type === 'deadline' && item.submitPlace && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>📍 제출할 곳: {item.submitPlace}</div>
+              )}
+              {item.fileNames?.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  {item.fileNames.map((name, i) => (
+                    <div key={i} style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      📎 {name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {adminMode && (
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  style={{ marginTop: 6, background: 'none', border: '1px solid #ffd0d3', borderRadius: 4, fontSize: 11, color: 'var(--danger)', cursor: 'pointer', padding: '2px 8px' }}
+                >🗑️ 삭제</button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="modal-footer">
+          {adminMode && (
+            <button className="btn-save" onClick={onAdd}>＋ 추가 등록</button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onClose}>닫기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoticeItemModal({ dateStr, type, onClose }) {
   const typeLabel = type === 'notice' ? '안내장' : '제출마감';
   const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
@@ -682,8 +742,17 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                   return (
                     <td
                       key={dayIdx}
-                      className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}${adminMode && !isNoSchool ? ' notice-cell-clickable' : ''}`}
-                      onClick={() => adminMode && !isNoSchool && setNoticeModal({ dateStr, type: key })}
+                      className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}${!isNoSchool ? ' notice-cell-clickable' : ''}`}
+                      onClick={() => {
+                        if (isNoSchool) return;
+                        // 등록된 항목이 있으면 상세보기, 없으면 등록 모달(관리자만)
+                        const existing = loadNoticeItems().filter(i => i.type === key && i.date === dateStr);
+                        if (existing.length > 0) {
+                          setNoticeModal({ dateStr, type: key, viewItems: existing });
+                        } else if (adminMode) {
+                          setNoticeModal({ dateStr, type: key });
+                        }
+                      }}
                     >
                       <div className="notice-text">
                         {val || (adminMode && !isNoSchool
@@ -702,11 +771,21 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
       </div>
 
       {noticeModal && (
-        <NoticeItemModal
-          dateStr={noticeModal.dateStr}
-          type={noticeModal.type}
-          onClose={() => setNoticeModal(null)}
-        />
+        noticeModal.viewItems ? (
+          <NoticeViewModal
+            items={noticeModal.viewItems}
+            type={noticeModal.type}
+            adminMode={adminMode}
+            onClose={() => setNoticeModal(null)}
+            onAdd={() => setNoticeModal({ dateStr: noticeModal.dateStr, type: noticeModal.type })}
+          />
+        ) : (
+          <NoticeItemModal
+            dateStr={noticeModal.dateStr}
+            type={noticeModal.type}
+            onClose={() => setNoticeModal(null)}
+          />
+        )
       )}
 
       {editCell && (

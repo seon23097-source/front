@@ -1728,3 +1728,6 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 }
 .chat-send-btn:hover:not(:disabled) { background: #2a45e8; }
 .chat-send-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* 게시판 항목 클릭 커서 */
+.board-item-clickable { cursor: pointer; }
