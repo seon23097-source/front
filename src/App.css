@@ -1798,3 +1798,18 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 }
 .chat-send-btn:hover { background: #2a45e8; }
 .chat-send-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── notice 셀 클릭 스타일 ──────────────────────────── */
+.notice-cell-clickable {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.notice-cell-clickable:hover {
+  background: var(--accent-light) !important;
+}
+.notice-placeholder {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.6;
+}

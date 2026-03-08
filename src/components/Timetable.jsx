@@ -8,12 +8,22 @@ import { getClasses } from '../api/admin';
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
 const NOTICE_STORAGE_KEY = 'schosche_notices';
+const ITEMS_STORAGE_KEY = 'schosche_notice_items'; // 안내장/제출마감 항목 리스트
 
 function loadNotices() {
   try { return JSON.parse(localStorage.getItem(NOTICE_STORAGE_KEY) || '{}'); }
   catch { return {}; }
 }
 function saveNoticesStorage(data) { localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(data)); }
+
+export function loadNoticeItems() {
+  try { return JSON.parse(localStorage.getItem(ITEMS_STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+export function saveNoticeItems(items) {
+  localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(items));
+  window.dispatchEvent(new Event('noticeItemsChanged'));
+}
 
 export function toLocalDateStr(d) {
   const y = d.getFullYear();
@@ -101,6 +111,81 @@ function CellChip({ entry, colorMap, onClick, compact = false, dimmed = false })
           {!compact && entry.teacher_name && <span className="chip-teacher">{entry.teacher_name}</span>}
         </>
       )}
+    </div>
+  );
+}
+
+// ── 안내장/제출마감 등록 모달 ─────────────────────────
+function NoticeItemModal({ dateStr, type, onClose }) {
+  const label = type === 'notice' ? '안내장' : '제출마감';
+  const [title, setTitle] = useState('');
+  const [month, setMonth] = useState(() => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${d.getMonth() + 1}월${d.getDate()}일`;
+  });
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+    const items = loadNoticeItems();
+    const newItem = {
+      id: Date.now(),
+      type,
+      title: title.trim(),
+      date: dateStr,
+      displayDate: month,
+      createdAt: Date.now(),
+    };
+    saveNoticeItems([newItem, ...items]);
+    onClose();
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${type === 'notice' ? '#FF6B35' : '#3D5AFE'}` }}>
+          <span className="modal-class">{label} 등록</span>
+          <span className="modal-slot">{dateStr}</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {type === 'notice' && (
+            <label>
+              배부일
+              <input
+                type="text"
+                value={month}
+                onChange={e => setMonth(e.target.value)}
+                placeholder="예: 3월8일"
+                style={{ width: '100%' }}
+              />
+            </label>
+          )}
+          <label>
+            제목
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSave()}
+              placeholder={type === 'notice' ? '안내장 제목' : '제출 항목명'}
+              autoFocus
+              style={{ width: '100%' }}
+            />
+          </label>
+          {type === 'deadline' && (
+            <label>
+              마감일
+              <input type="text" value={dateStr} readOnly style={{ width: '100%', background: 'var(--surface2)', color: 'var(--text-muted)' }} />
+            </label>
+          )}
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onClose}>취소</button>
+          <button className="btn-save" onClick={handleSave} disabled={!title.trim()}>등록</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -241,6 +326,7 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   const [focusedTeacher, setFocusedTeacher] = useState(null);
   // 안내장/제출마감
   const [notices, setNotices] = useState(loadNotices);
+  const [noticeModal, setNoticeModal] = useState(null); // { dateStr, type }
 
   // classesList 기반 동적 목록
   const regularClasses = classesList.filter(c => !c.isSpecial).map(c => c.className);
@@ -379,6 +465,32 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
     setNotices(updated);
     saveNoticesStorage(updated);
   };
+
+  // noticeItems 변경 시 notice 셀 텍스트 자동 갱신
+  useEffect(() => {
+    const refresh = () => {
+      const items = loadNoticeItems();
+      const newNotices = {};
+      items.forEach(item => {
+        if (!newNotices[item.date]) newNotices[item.date] = {};
+        const existing = newNotices[item.date][item.type] || '';
+        const line = item.type === 'notice'
+          ? `[${item.displayDate} 배부] ${item.title}`
+          : `• ${item.title}`;
+        newNotices[item.date][item.type] = existing ? existing + '\n' + line : line;
+      });
+      // 기존 notices와 병합
+      const base = loadNotices();
+      const merged = { ...base };
+      Object.entries(newNotices).forEach(([date, fields]) => {
+        merged[date] = { ...(merged[date] || {}), ...fields };
+      });
+      setNotices(merged);
+    };
+    refresh();
+    window.addEventListener('noticeItemsChanged', refresh);
+    return () => window.removeEventListener('noticeItemsChanged', refresh);
+  }, []);
 
   const noticeRows = [
     { key: 'notice',   labelLines: ['안','내','장'], rowClass: 'notice-row-notice',   label: '안내장'  },
@@ -538,14 +650,12 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                   const isNoSchool = noSchoolDateSet.has(dateStr);
                   const val = notices[dateStr]?.[key] || '';
                   return (
-                    <td key={dayIdx} className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}`}>
-                      {adminMode && !isNoSchool ? (
-                        <textarea className="notice-input" value={val}
-                          onChange={e => updateNotice(dateStr, key, e.target.value)}
-                          placeholder={label} />
-                      ) : (
-                        <div className="notice-text">{val}</div>
-                      )}
+                    <td
+                      key={dayIdx}
+                      className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}${adminMode && !isNoSchool ? ' notice-cell-clickable' : ''}`}
+                      onClick={() => adminMode && !isNoSchool && setNoticeModal({ dateStr, type: key })}
+                    >
+                      <div className="notice-text">{val || (adminMode && !isNoSchool ? <span className="notice-placeholder">+ {label}</span> : '')}</div>
                     </td>
                   );
                 })}
@@ -556,6 +666,14 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
           </tfoot>
         </table>
       </div>
+
+      {noticeModal && (
+        <NoticeItemModal
+          dateStr={noticeModal.dateStr}
+          type={noticeModal.type}
+          onClose={() => setNoticeModal(null)}
+        />
+      )}
 
       {editCell && (
         <EditModal cell={editCell} colorMap={colorMap}
