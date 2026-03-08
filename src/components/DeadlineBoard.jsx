@@ -185,30 +185,35 @@ export default function DeadlineBoard({ adminMode, noticeItems = [], onReload })
             const dBadge = d === null ? '' : d === 0 ? 'D-Day' : d > 0 ? `D-${d}` : `D+${-d}`;
             const badgeColor = d === null ? '#888' : d === 0 ? '#e53935' : d > 0 && d <= 3 ? '#FF6B35' : d > 0 ? '#3D5AFE' : '#888';
             return (
-              <div key={item.id} className="deadline-card" onClick={() => setSelected(item)}>
-                <div className="deadline-card-header">
-                  <span className="deadline-title">{item.title}</span>
-                  {dBadge && <span className="deadline-badge" style={{ background: badgeColor }}>{dBadge}</span>}
+              <div key={item.id} className="deadline-card">
+                <div className="deadline-card-header" onClick={() => setSelected(item)}>
+                  <span className="deadline-card-title">{item.title}</span>
+                  <span className="deadline-card-progress" style={{ color: 'var(--text-muted)' }}>{submitted}/{classes.length}</span>
+                  {dBadge && (
+                    <span className="deadline-card-badge" style={{ background: badgeColor, color: '#fff' }}>
+                      {dBadge}
+                    </span>
+                  )}
                 </div>
-                <div className="deadline-progress">
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{submitted}/{classes.length}반 제출</span>
+                <div className="deadline-card-table-wrap">
+                  <table className="deadline-cls-table">
+                    <thead>
+                      <tr>{classes.map(c => <th key={c}>{c}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      <tr>{classes.map(c => (
+                        <td key={c}>
+                          <label className={`deadline-cls-check${submitMap[String(item.id)]?.[c] ? ' done' : ''}`}>
+                            <input type="checkbox"
+                              checked={!!submitMap[String(item.id)]?.[c]}
+                              onChange={e => { e.stopPropagation(); handleToggle(item.id, c); }}
+                              onClick={e => e.stopPropagation()} />
+                          </label>
+                        </td>
+                      ))}</tr>
+                    </tbody>
+                  </table>
                 </div>
-                <table className="deadline-cls-table">
-                  <thead>
-                    <tr>{classes.map(c => <th key={c} style={{whiteSpace:"nowrap"}}>{c}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr>{classes.map(c => (
-                      <td key={c}>
-                        <label className={`deadline-cls-check${submitMap[String(item.id)]?.[c] ? ' done' : ''}`}
-                          onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={!!submitMap[String(item.id)]?.[c]}
-                            onChange={() => handleToggle(item.id, c)} />
-                        </label>
-                      </td>
-                    ))}</tr>
-                  </tbody>
-                </table>
               </div>
             );
           })}
