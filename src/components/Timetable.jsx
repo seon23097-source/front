@@ -116,6 +116,28 @@ function CellChip({ entry, colorMap, onClick, compact = false, dimmed = false })
 }
 
 // ── 안내장/제출마감 등록 모달 ─────────────────────────
+function FileAttachField({ files, onChange }) {
+  return (
+    <label>
+      첨부파일
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        <label style={{
+          padding: '5px 10px', background: 'var(--surface2)', border: '1px solid var(--border)',
+          borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          color: 'var(--text-muted)', whiteSpace: 'nowrap', textTransform: 'none', letterSpacing: 0,
+        }}>
+          📎 파일 선택
+          <input type="file" multiple style={{ display: 'none' }}
+            onChange={e => onChange(Array.from(e.target.files))} />
+        </label>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {files.length > 0 ? files.map(f => f.name).join(', ') : '선택된 파일 없음'}
+        </span>
+      </div>
+    </label>
+  );
+}
+
 function NoticeItemModal({ dateStr, type, onClose }) {
   const typeLabel = type === 'notice' ? '안내장' : '제출마감';
   const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
@@ -125,6 +147,8 @@ function NoticeItemModal({ dateStr, type, onClose }) {
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}월${d.getDate()}일`;
   });
+  const [submitPlace, setSubmitPlace] = useState('');
+  const [files, setFiles] = useState([]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -135,6 +159,8 @@ function NoticeItemModal({ dateStr, type, onClose }) {
       title: title.trim(),
       date: dateStr,
       displayDate,
+      submitPlace: submitPlace.trim(),
+      fileNames: files.map(f => f.name),
       createdAt: Date.now(),
     };
     saveNoticeItems([newItem, ...items]);
@@ -167,12 +193,21 @@ function NoticeItemModal({ dateStr, type, onClose }) {
               autoFocus />
           </label>
           {type === 'deadline' && (
-            <label>
-              마감일
-              <input type="text" value={dateStr} readOnly
-                style={{ background: 'var(--surface2)', color: 'var(--text-muted)' }} />
-            </label>
+            <>
+              <label>
+                마감일
+                <input type="text" value={dateStr} readOnly
+                  style={{ background: 'var(--surface2)', color: 'var(--text-muted)' }} />
+              </label>
+              <label>
+                제출할 곳
+                <input type="text" value={submitPlace}
+                  onChange={e => setSubmitPlace(e.target.value)}
+                  placeholder="예: 담임 선생님께, 교무실" />
+              </label>
+            </>
           )}
+          <FileAttachField files={files} onChange={setFiles} />
         </div>
         <div className="modal-footer">
           <div style={{ flex: 1 }} />

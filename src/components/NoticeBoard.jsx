@@ -12,14 +12,38 @@ function saveBoardNotices(items) {
   window.dispatchEvent(new Event('boardNoticesChanged'));
 }
 
+function FileAttachField({ files, onChange }) {
+  return (
+    <label>
+      첨부파일
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        <label style={{
+          padding: '5px 10px', background: 'var(--surface2)', border: '1px solid var(--border)',
+          borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          color: 'var(--text-muted)', whiteSpace: 'nowrap', textTransform: 'none', letterSpacing: 0,
+        }}>
+          📎 파일 선택
+          <input type="file" multiple style={{ display: 'none' }}
+            onChange={e => onChange(Array.from(e.target.files))} />
+        </label>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {files.length > 0 ? files.map(f => f.name).join(', ') : '선택된 파일 없음'}
+        </span>
+      </div>
+    </label>
+  );
+}
+
 function AddNoticeModal({ onClose }) {
   const [title, setTitle] = useState('');
-  const [type, setType] = useState('notice'); // 'notice' | 'announcement'
+  const [type, setType] = useState('notice');
   const [pinned, setPinned] = useState(false);
+  const [content, setContent] = useState('');
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return `${d.getMonth() + 1}월${d.getDate()}일`;
   });
+  const [files, setFiles] = useState([]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -32,7 +56,9 @@ function AddNoticeModal({ onClose }) {
       type,
       title: title.trim(),
       display,
+      content: content.trim(),
       pinned: type === 'notice' ? pinned : false,
+      fileNames: files.map(f => f.name),
       createdAt: Date.now(),
     };
     saveBoardNotices([newItem, ...notices]);
@@ -41,7 +67,7 @@ function AddNoticeModal({ onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderLeft: '4px solid #3D5AFE' }}>
           <span className="modal-class">공지/안내장 등록</span>
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -50,62 +76,62 @@ function AddNoticeModal({ onClose }) {
           <label>
             종류
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button
-                onClick={() => setType('notice')}
-                style={{
-                  flex: 1, padding: '7px', borderRadius: 6, border: '1.5px solid',
-                  borderColor: type === 'notice' ? 'var(--accent)' : 'var(--border)',
-                  background: type === 'notice' ? 'var(--accent-light)' : 'var(--surface)',
-                  color: type === 'notice' ? 'var(--accent)' : 'var(--text-muted)',
-                  fontWeight: 700, cursor: 'pointer', fontSize: 13,
-                }}
-              >📢 공지</button>
-              <button
-                onClick={() => setType('announcement')}
-                style={{
-                  flex: 1, padding: '7px', borderRadius: 6, border: '1.5px solid',
-                  borderColor: type === 'announcement' ? '#FF6B35' : 'var(--border)',
-                  background: type === 'announcement' ? '#fff3ee' : 'var(--surface)',
-                  color: type === 'announcement' ? '#FF6B35' : 'var(--text-muted)',
-                  fontWeight: 700, cursor: 'pointer', fontSize: 13,
-                }}
-              >📄 안내장</button>
+              <button onClick={() => setType('notice')} style={{
+                flex: 1, padding: '7px', borderRadius: 6, border: '1.5px solid',
+                borderColor: type === 'notice' ? 'var(--accent)' : 'var(--border)',
+                background: type === 'notice' ? 'var(--accent-light)' : 'var(--surface)',
+                color: type === 'notice' ? 'var(--accent)' : 'var(--text-muted)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 13,
+              }}>📢 공지</button>
+              <button onClick={() => setType('announcement')} style={{
+                flex: 1, padding: '7px', borderRadius: 6, border: '1.5px solid',
+                borderColor: type === 'announcement' ? '#FF6B35' : 'var(--border)',
+                background: type === 'announcement' ? '#fff3ee' : 'var(--surface)',
+                color: type === 'announcement' ? '#FF6B35' : 'var(--text-muted)',
+                fontWeight: 700, cursor: 'pointer', fontSize: 13,
+              }}>📄 안내장</button>
             </div>
           </label>
 
           {type === 'announcement' && (
             <label>
               배부일
-              <input
-                type="text"
-                value={month}
+              <input type="text" value={month}
                 onChange={e => setMonth(e.target.value)}
-                placeholder="예: 3월8일"
-                style={{ width: '100%' }}
-              />
+                placeholder="예: 3월8일" style={{ width: '100%' }} />
             </label>
           )}
 
           <label>
             제목
-            <input
-              type="text"
-              value={title}
+            <input type="text" value={title}
               onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSave()}
+              onKeyDown={e => e.key === 'Enter' && !content && handleSave()}
               placeholder={type === 'notice' ? '공지 제목' : '안내장 제목'}
-              autoFocus
-              style={{ width: '100%' }}
-            />
+              autoFocus style={{ width: '100%' }} />
           </label>
 
           {type === 'notice' && (
+            <label>
+              내용
+              <textarea value={content}
+                onChange={e => setContent(e.target.value)}
+                placeholder="공지 내용 (선택사항)"
+                rows={3}
+                style={{
+                  width: '100%', resize: 'vertical', padding: '8px 10px',
+                  border: '1.5px solid var(--border)', borderRadius: 6,
+                  fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                  background: 'var(--surface)', color: 'var(--text)',
+                }} />
+            </label>
+          )}
+
+          <FileAttachField files={files} onChange={setFiles} />
+
+          {type === 'notice' && (
             <label className="checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={pinned}
-                onChange={e => setPinned(e.target.checked)}
-              />
+              <input type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)} />
               상단 고정
             </label>
           )}

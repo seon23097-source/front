@@ -33,12 +33,6 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="header-left">
-          <div className="header-logo">
-            <span className="logo-icon">📅</span>
-            <span className="logo-text">4학년 통합시간표</span>
-          </div>
-          <span className="header-sub">4-1 ~ 4-9 · 전담교사</span>
-
           <nav className="header-tabs">
             <button
               className={`header-tab${activeTab === 'home' ? ' active' : ''}`}
