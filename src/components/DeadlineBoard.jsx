@@ -163,8 +163,11 @@ export default function DeadlineBoard({ adminMode }) {
   // 30초마다 서버 현황 갱신 (다른 기기 변경 반영)
   useEffect(() => {
     const interval = setInterval(async () => {
-      const map = await apiGetSubmitMap();
-      setSubmitMap(map);
+      // API 응답 있을 때만 갱신
+      try {
+        const map = await apiGetSubmitMap();
+        if (map && Object.keys(map).length >= 0) setSubmitMap(map);
+      } catch {}
     }, 30000);
     return () => clearInterval(interval);
   }, []);
