@@ -8,6 +8,16 @@ import { fetchNoticeItems, createNoticeItem, deleteNoticeItem } from '../api/not
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
+// ── 시간표 셀 notice 텍스트 (localStorage) ──────────────
+const NOTICE_STORAGE_KEY = 'schosche_notices';
+function loadNotices() {
+  try { return JSON.parse(localStorage.getItem(NOTICE_STORAGE_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveNoticesStorage(data) {
+  localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(data));
+}
+
 // ── notice items: API 기반 ──────────────────────────────
 // 동기 호환용 캐시 (DeadlineBoard/NoticeBoard에서 동기로 읽는 곳 대비)
 let _noticeItemsCache = [];
