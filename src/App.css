@@ -1747,7 +1747,7 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 }
 .chat-online-chip.me {
   background: var(--accent-light); color: var(--accent);
-  border-color: #c5cae9;
+  border-color: var(--border);
 }
 
 .chat-messages {
@@ -1904,5 +1904,5 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .dark .deadline-card-header:hover { background: var(--surface2); }
 .dark .deadline-card-table-wrap { background: var(--surface2); border-color: var(--border); }
 .dark .deadline-cls-check { background: var(--surface); border-color: var(--border); }
-.dark .deadline-cls-check.done { background: #1b3a1f; border-color: #4caf50; }
+.dark .deadline-cls-check.done { background: #1b3a1f !important; border-color: #4caf50 !important; }
 .dark .board-item:hover { background: var(--surface2); }
