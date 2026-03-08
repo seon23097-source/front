@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { loadNoticeItems, saveNoticeItems } from './Timetable';
+import { loadNoticeItems, _setItemsCache } from './Timetable';
+import { fetchNoticeItems, deleteNoticeItem } from '../api/noticeApi';
 
 const CLASSES = ['4-1','4-2','4-3','4-4','4-5','4-6','4-7','4-8','4-9'];
 const BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -138,6 +139,8 @@ export default function DeadlineBoard({ adminMode }) {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
+    const fetched = await fetchNoticeItems();
+    if (fetched) _setItemsCache(fetched);
     const all = loadNoticeItems();
     const deadlines = all.filter(i => i.type === 'deadline');
     deadlines.sort((a, b) => {
@@ -187,10 +190,13 @@ export default function DeadlineBoard({ adminMode }) {
     }
   };
 
-  const handleDelete = (id) => {
-    const all = loadNoticeItems();
-    saveNoticeItems(all.filter(i => i.id !== id));
-    apiDeleteItem(id);
+  const handleDelete = async (id) => {
+    try {
+      await deleteNoticeItem(id);
+      _setItemsCache(loadNoticeItems().filter(i => i.id !== id));
+      await apiDeleteItem(id);
+    } catch(e) { console.error(e); }
+    await loadAll();
   };
 
   if (loading) return (

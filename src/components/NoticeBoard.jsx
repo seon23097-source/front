@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { loadNoticeItems } from './Timetable';
+import { loadNoticeItems, _setItemsCache } from './Timetable';
+import { fetchNoticeItems, fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
 
 // ── 공통 유틸 ──────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel }) {
@@ -65,18 +66,16 @@ function AddNoticeModal({ onClose }) {
     const display = type === 'announcement'
       ? `[${month} 배부] ${title.trim()}`
       : `[공지] ${title.trim()}`;
-    const BOARD_KEY = 'schosche_board_notices';
-    const existing = (() => { try { return JSON.parse(localStorage.getItem(BOARD_KEY) || '[]'); } catch { return []; } })();
-    const item = {
-      id: Date.now(), type, title: title.trim(), display,
-      content: content.trim(),
-      pinned: type === 'notice' ? pinned : false,
-      fileNames: files.map(f => f.name),
-      createdAt: Date.now(),
-    };
-    localStorage.setItem(BOARD_KEY, JSON.stringify([item, ...existing]));
-    window.dispatchEvent(new Event('boardNoticesChanged'));
+    try {
+      await createBoardNotice({
+        type, title: title.trim(), display,
+        content: content.trim(),
+        pinned: type === 'notice' ? pinned : false,
+        fileNames: files.map(f => f.name),
+      });
+    } catch(e) { console.error(e); }
     setSaving(false);
+    window.dispatchEvent(new Event('noticeItemsChanged'));
     onClose();
   };
 
@@ -221,12 +220,13 @@ export default function NoticeBoard({ adminMode }) {
   const [confirmItem, setConfirmItem] = useState(null);
   const [loading, setLoading]     = useState(true);
 
-  const BOARD_KEY = 'schosche_board_notices';
-  const loadBoardNotices = () => { try { return JSON.parse(localStorage.getItem(BOARD_KEY) || '[]'); } catch { return []; } };
-  const saveBoardNotices = (items) => { localStorage.setItem(BOARD_KEY, JSON.stringify(items)); };
-
-  const loadAll = () => {
-    const boardNotices = loadBoardNotices();
+  const loadAll = async () => {
+    // board notices
+    const boardFetched = await fetchBoardNotices();
+    const boardNotices = boardFetched ?? [];
+    // timetable notice items
+    const itemsFetched = await fetchNoticeItems();
+    if (itemsFetched) _setItemsCache(itemsFetched);
     const timetableNotices = loadNoticeItems()
       .filter(i => i.type === 'notice')
       .map(i => ({
@@ -252,15 +252,11 @@ export default function NoticeBoard({ adminMode }) {
   useEffect(() => {
     loadAll();
     window.addEventListener('noticeItemsChanged', loadAll);
-    window.addEventListener('boardNoticesChanged', loadAll);
-    return () => {
-      window.removeEventListener('noticeItemsChanged', loadAll);
-      window.removeEventListener('boardNoticesChanged', loadAll);
-    };
+    return () => window.removeEventListener('noticeItemsChanged', loadAll);
   }, []);
 
-  const handleDelete = (id) => {
-    saveBoardNotices(loadBoardNotices().filter(i => i.id !== id));
+  const handleDelete = async (id) => {
+    try { await deleteBoardNotice(id); } catch(e) { console.error(e); }
     loadAll();
   };
 
