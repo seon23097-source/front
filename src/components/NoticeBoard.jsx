@@ -1,18 +1,8 @@
 import { useState, useEffect } from 'react';
-import { loadNoticeItems, saveNoticeItems } from './Timetable';
+import { refreshNoticeItems, loadNoticeItems } from './Timetable';
+import { fetchBoardNotices, createBoardNotice, deleteBoardNotice } from '../api/noticeApi';
 
-const NOTICES_KEY = 'schosche_board_notices';
-
-function loadBoardNotices() {
-  try { return JSON.parse(localStorage.getItem(NOTICES_KEY) || '[]'); }
-  catch { return []; }
-}
-function saveBoardNotices(items) {
-  localStorage.setItem(NOTICES_KEY, JSON.stringify(items));
-  window.dispatchEvent(new Event('boardNoticesChanged'));
-}
-
-
+// ── 공통 유틸 ──────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
     <div className="modal-backdrop" onClick={onCancel}>
@@ -43,7 +33,7 @@ function FileAttachField({ files, onChange }) {
         <label style={{
           padding: '5px 10px', background: 'var(--surface2)', border: '1px solid var(--border)',
           borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-          color: 'var(--text-muted)', whiteSpace: 'nowrap', textTransform: 'none', letterSpacing: 0,
+          color: 'var(--text-muted)', whiteSpace: 'nowrap',
         }}>
           📎 파일 선택
           <input type="file" multiple style={{ display: 'none' }}
@@ -57,34 +47,33 @@ function FileAttachField({ files, onChange }) {
   );
 }
 
-function AddNoticeModal({ onClose }) {
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState('notice');
+// ── 등록 모달 ──────────────────────────────────────────
+function AddNoticeModal({ onClose, onSaved }) {
+  const [title, setTitle]   = useState('');
+  const [type, setType]     = useState('notice');
   const [pinned, setPinned] = useState(false);
   const [content, setContent] = useState('');
-  const [month, setMonth] = useState(() => {
+  const [month, setMonth]   = useState(() => {
     const d = new Date();
     return `${d.getMonth() + 1}월${d.getDate()}일`;
   });
-  const [files, setFiles] = useState([]);
+  const [files, setFiles]   = useState([]);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    if (!title.trim()) return;
-    const notices = loadBoardNotices();
+  const handleSave = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
     const display = type === 'announcement'
       ? `[${month} 배부] ${title.trim()}`
       : `[공지] ${title.trim()}`;
-    const newItem = {
-      id: Date.now(),
-      type,
-      title: title.trim(),
-      display,
+    await createBoardNotice({
+      type, title: title.trim(), display,
       content: content.trim(),
       pinned: type === 'notice' ? pinned : false,
       fileNames: files.map(f => f.name),
-      createdAt: Date.now(),
-    };
-    saveBoardNotices([newItem, ...notices]);
+    });
+    await onSaved();
+    setSaving(false);
     onClose();
   };
 
@@ -109,22 +98,19 @@ function AddNoticeModal({ onClose }) {
               <button onClick={() => setType('announcement')} style={{
                 flex: 1, padding: '7px', borderRadius: 6, border: '1.5px solid',
                 borderColor: type === 'announcement' ? '#FF6B35' : 'var(--border)',
-                background: type === 'announcement' ? '#fff3ee' : 'var(--surface)',
+                background: type === 'announcement' ? 'rgba(255,107,53,0.08)' : 'var(--surface)',
                 color: type === 'announcement' ? '#FF6B35' : 'var(--text-muted)',
                 fontWeight: 700, cursor: 'pointer', fontSize: 13,
               }}>📄 안내장</button>
             </div>
           </label>
-
           {type === 'announcement' && (
             <label>
               배부일
-              <input type="text" value={month}
-                onChange={e => setMonth(e.target.value)}
+              <input type="text" value={month} onChange={e => setMonth(e.target.value)}
                 placeholder="예: 3월8일" style={{ width: '100%' }} />
             </label>
           )}
-
           <label>
             제목
             <input type="text" value={title}
@@ -133,14 +119,11 @@ function AddNoticeModal({ onClose }) {
               placeholder={type === 'notice' ? '공지 제목' : '안내장 제목'}
               autoFocus style={{ width: '100%' }} />
           </label>
-
           {type === 'notice' && (
             <label>
               내용
-              <textarea value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder="공지 내용 (선택사항)"
-                rows={3}
+              <textarea value={content} onChange={e => setContent(e.target.value)}
+                placeholder="공지 내용 (선택사항)" rows={3}
                 style={{
                   width: '100%', resize: 'vertical', padding: '8px 10px',
                   border: '1.5px solid var(--border)', borderRadius: 6,
@@ -149,9 +132,7 @@ function AddNoticeModal({ onClose }) {
                 }} />
             </label>
           )}
-
           <FileAttachField files={files} onChange={setFiles} />
-
           {type === 'notice' && (
             <label className="checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)} />
@@ -162,13 +143,16 @@ function AddNoticeModal({ onClose }) {
         <div className="modal-footer">
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button className="btn-save" onClick={handleSave} disabled={!title.trim()}>등록</button>
+          <button className="btn-save" onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving ? '등록 중...' : '등록'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+// ── 상세 모달 ──────────────────────────────────────────
 function DetailModal({ item, onClose, onDelete, adminMode }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isNotice = item.type === 'notice';
@@ -187,28 +171,22 @@ function DetailModal({ item, onClose, onDelete, adminMode }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>
             {item.display}
           </div>
-
           {item.content && (
             <div style={{
               fontSize: 13, color: 'var(--text)', lineHeight: 1.7,
               padding: '10px 12px', background: 'var(--surface2)',
               borderRadius: 6, whiteSpace: 'pre-wrap', marginBottom: 8,
-            }}>
-              {item.content}
-            </div>
+            }}>{item.content}</div>
           )}
-
           {item.fileNames?.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.4px' }}>첨부파일</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>첨부파일</div>
               {item.fileNames.map((name, i) => (
                 <div key={i} style={{
                   fontSize: 12, padding: '5px 10px', background: 'var(--surface2)',
                   borderRadius: 5, border: '1px solid var(--border)', marginBottom: 4,
                   display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  📎 {name}
-                </div>
+                }}>📎 {name}</div>
               ))}
             </div>
           )}
@@ -217,30 +195,35 @@ function DetailModal({ item, onClose, onDelete, adminMode }) {
           {adminMode && !isTimetable && (
             <button className="btn-delete" onClick={() => setConfirmDelete(true)}>🗑️ 삭제</button>
           )}
-          {confirmDelete && (
-            <ConfirmModal
-              message={`"${item.display}" 항목을 삭제할까요?`}
-              onConfirm={() => { onDelete(item.id); onClose(); }}
-              onCancel={() => setConfirmDelete(false)}
-            />
-          )}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>닫기</button>
         </div>
+        {confirmDelete && (
+          <ConfirmModal
+            message={`"${item.display}" 항목을 삭제할까요?`}
+            onConfirm={() => { onDelete(item.id); onClose(); }}
+            onCancel={() => setConfirmDelete(false)}
+          />
+        )}
       </div>
     </div>
   );
 }
 
+// ── 메인 컴포넌트 ──────────────────────────────────────
 export default function NoticeBoard({ adminMode }) {
-  const [items, setItems] = useState([]);
+  const [items, setItems]         = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected]   = useState(null);
   const [confirmItem, setConfirmItem] = useState(null);
+  const [loading, setLoading]     = useState(true);
 
-  const loadItems = () => {
-    const notices = loadBoardNotices();
-    const timetableNotices = loadNoticeItems()
+  const loadAll = async () => {
+    const [boardNotices, timetableItems] = await Promise.all([
+      fetchBoardNotices(),
+      refreshNoticeItems(),
+    ]);
+    const timetableNotices = (timetableItems || loadNoticeItems())
       .filter(i => i.type === 'notice')
       .map(i => ({
         id: 'tt_' + i.id,
@@ -252,28 +235,25 @@ export default function NoticeBoard({ adminMode }) {
         createdAt: i.createdAt,
       }));
 
-    const all = [...notices, ...timetableNotices];
+    const all = [...boardNotices, ...timetableNotices];
     all.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       return b.createdAt - a.createdAt;
     });
     setItems(all);
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadItems();
-    window.addEventListener('boardNoticesChanged', loadItems);
-    window.addEventListener('noticeItemsChanged', loadItems);
-    return () => {
-      window.removeEventListener('boardNoticesChanged', loadItems);
-      window.removeEventListener('noticeItemsChanged', loadItems);
-    };
+    loadAll();
+    window.addEventListener('noticeItemsChanged', loadAll);
+    return () => window.removeEventListener('noticeItemsChanged', loadAll);
   }, []);
 
-  const handleDelete = (id) => {
-    const notices = loadBoardNotices();
-    saveBoardNotices(notices.filter(i => i.id !== id));
+  const handleDelete = async (id) => {
+    await deleteBoardNotice(id);
+    await loadAll();
   };
 
   const catColor = { notice: '#3D5AFE', announcement: '#FF6B35' };
@@ -284,24 +264,20 @@ export default function NoticeBoard({ adminMode }) {
         <div className="board-header">
           <span className="board-title">📢 공지 · 안내장</span>
           {adminMode && (
-            <button className="board-add-btn" onClick={() => setShowModal(true)} title="공지/안내장 등록">＋</button>
+            <button className="board-add-btn" onClick={() => setShowModal(true)}>＋</button>
           )}
         </div>
         <div className="board-body">
-          {items.length === 0 ? (
-            <div className="board-empty">
-              <span>📭</span>
-              <span>등록된 공지가 없습니다.</span>
-            </div>
+          {loading ? (
+            <div className="board-empty"><span>⏳</span><span>불러오는 중...</span></div>
+          ) : items.length === 0 ? (
+            <div className="board-empty"><span>📭</span><span>등록된 공지가 없습니다.</span></div>
           ) : (
             items.map(item => {
-              const color = item.type === 'notice' ? catColor.notice : catColor.announcement;
+              const color = catColor[item.type] || '#888';
               return (
-                <div
-                  key={item.id}
-                  className="board-item board-item-clickable"
-                  onClick={() => setSelected(item)}
-                >
+                <div key={item.id} className="board-item board-item-clickable"
+                  onClick={() => setSelected(item)}>
                   {item.pinned && <span style={{ fontSize: 10 }}>📍</span>}
                   <div className="board-item-dot" style={{ background: color }} />
                   <div className="board-item-content">
@@ -316,8 +292,7 @@ export default function NoticeBoard({ adminMode }) {
                   {adminMode && !String(item.id).startsWith('tt_') && (
                     <button
                       onClick={e => { e.stopPropagation(); setConfirmItem(item); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#ccc', padding: '0 2px', lineHeight: 1 }}
-                      title="삭제"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#ccc', padding: '0 2px' }}
                     >✕</button>
                   )}
                 </div>
@@ -327,20 +302,16 @@ export default function NoticeBoard({ adminMode }) {
         </div>
       </div>
 
-      {showModal && <AddNoticeModal onClose={() => setShowModal(false)} />}
+      {showModal && <AddNoticeModal onClose={() => setShowModal(false)} onSaved={loadAll} />}
+      {selected && (
+        <DetailModal item={selected} adminMode={adminMode}
+          onClose={() => setSelected(null)} onDelete={handleDelete} />
+      )}
       {confirmItem && (
         <ConfirmModal
           message={`"${confirmItem.display}" 항목을 삭제할까요?`}
           onConfirm={() => { handleDelete(confirmItem.id); setConfirmItem(null); }}
           onCancel={() => setConfirmItem(null)}
-        />
-      )}
-      {selected && (
-        <DetailModal
-          item={selected}
-          adminMode={adminMode}
-          onClose={() => setSelected(null)}
-          onDelete={handleDelete}
         />
       )}
     </>
