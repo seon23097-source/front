@@ -610,7 +610,7 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255,255,255,0.8);
+  background: rgba(var(--loading-bg, 255,255,255), 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1908,6 +1908,7 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .dark .board-item:hover { background: var(--surface2); }
 
 /* 다크모드 추가 오버라이드 */
+.dark .loading-overlay { background: rgba(15,17,23,0.85) !important; }
 .dark .focus-banner { background: #2a2200 !important; border-color: #6b5200 !important; color: #f6d860 !important; }
 .dark .focus-banner-close:hover { background: #3a3000 !important; }
 .dark .sub-teacher-btn:hover,
@@ -1917,3 +1918,12 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .dark .th-day-noschool { background: #1a1c2a !important; }
 .dark .td-cell-noschool { background: #1a1c2a !important; }
 .dark .modal-backdrop { background: rgba(0,0,0,0.65) !important; }
+.dark .res-drag-overlay { background: rgba(15,17,23,0.75) !important; }
+.dark .res-context-menu { background: var(--surface) !important; border-color: var(--border) !important; }
+.dark .res-context-menu button { color: var(--text) !important; }
+.dark .res-context-menu button:hover { background: var(--surface2) !important; }
+.dark .ap-nav-item { color: var(--text) !important; }
+.dark .ap-nav-item:hover,
+.dark .ap-nav-item.active { background: var(--accent-light) !important; }
+.dark table { border-color: var(--border) !important; }
+.dark .notice-cell { color: var(--text) !important; }
