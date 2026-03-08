@@ -8,7 +8,7 @@ import { getClasses } from '../api/admin';
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
 const NOTICE_STORAGE_KEY = 'schosche_notices';
-const ITEMS_STORAGE_KEY = 'schosche_notice_items'; // 안내장/제출마감 항목 리스트
+const ITEMS_STORAGE_KEY  = 'schosche_notice_items';
 
 function loadNotices() {
   try { return JSON.parse(localStorage.getItem(NOTICE_STORAGE_KEY) || '{}'); }
@@ -117,9 +117,10 @@ function CellChip({ entry, colorMap, onClick, compact = false, dimmed = false })
 
 // ── 안내장/제출마감 등록 모달 ─────────────────────────
 function NoticeItemModal({ dateStr, type, onClose }) {
-  const label = type === 'notice' ? '안내장' : '제출마감';
+  const typeLabel = type === 'notice' ? '안내장' : '제출마감';
+  const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
   const [title, setTitle] = useState('');
-  const [month, setMonth] = useState(() => {
+  const [displayDate, setDisplayDate] = useState(() => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}월${d.getDate()}일`;
@@ -133,7 +134,7 @@ function NoticeItemModal({ dateStr, type, onClose }) {
       type,
       title: title.trim(),
       date: dateStr,
-      displayDate: month,
+      displayDate,
       createdAt: Date.now(),
     };
     saveNoticeItems([newItem, ...items]);
@@ -142,9 +143,9 @@ function NoticeItemModal({ dateStr, type, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ borderLeft: `4px solid ${type === 'notice' ? '#FF6B35' : '#3D5AFE'}` }}>
-          <span className="modal-class">{label} 등록</span>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
+          <span className="modal-class">{typeLabel} 등록</span>
           <span className="modal-slot">{dateStr}</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
@@ -152,31 +153,24 @@ function NoticeItemModal({ dateStr, type, onClose }) {
           {type === 'notice' && (
             <label>
               배부일
-              <input
-                type="text"
-                value={month}
-                onChange={e => setMonth(e.target.value)}
-                placeholder="예: 3월8일"
-                style={{ width: '100%' }}
-              />
+              <input type="text" value={displayDate}
+                onChange={e => setDisplayDate(e.target.value)}
+                placeholder="예: 3월8일" />
             </label>
           )}
           <label>
-            제목
-            <input
-              type="text"
-              value={title}
+            {typeLabel} {type === 'deadline' ? '항목명' : '제목'}
+            <input type="text" value={title}
               onChange={e => setTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSave()}
               placeholder={type === 'notice' ? '안내장 제목' : '제출 항목명'}
-              autoFocus
-              style={{ width: '100%' }}
-            />
+              autoFocus />
           </label>
           {type === 'deadline' && (
             <label>
               마감일
-              <input type="text" value={dateStr} readOnly style={{ width: '100%', background: 'var(--surface2)', color: 'var(--text-muted)' }} />
+              <input type="text" value={dateStr} readOnly
+                style={{ background: 'var(--surface2)', color: 'var(--text-muted)' }} />
             </label>
           )}
         </div>
@@ -466,26 +460,27 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
     saveNoticesStorage(updated);
   };
 
-  // noticeItems 변경 시 notice 셀 텍스트 자동 갱신
+  // noticeItems 변경 시 셀 텍스트 자동 갱신
   useEffect(() => {
     const refresh = () => {
       const items = loadNoticeItems();
-      const newNotices = {};
-      items.forEach(item => {
-        if (!newNotices[item.date]) newNotices[item.date] = {};
-        const existing = newNotices[item.date][item.type] || '';
+      const cellMap = {};
+      // 최신순 정렬 후 날짜별로 텍스트 누적
+      [...items].sort((a, b) => a.createdAt - b.createdAt).forEach(item => {
+        if (!cellMap[item.date]) cellMap[item.date] = {};
         const line = item.type === 'notice'
           ? `[${item.displayDate} 배부] ${item.title}`
           : `• ${item.title}`;
-        newNotices[item.date][item.type] = existing ? existing + '\n' + line : line;
+        const cur = cellMap[item.date][item.type] || '';
+        cellMap[item.date][item.type] = cur ? cur + '\n' + line : line;
       });
-      // 기존 notices와 병합
-      const base = loadNotices();
-      const merged = { ...base };
-      Object.entries(newNotices).forEach(([date, fields]) => {
-        merged[date] = { ...(merged[date] || {}), ...fields };
+      setNotices(prev => {
+        const next = { ...prev };
+        Object.entries(cellMap).forEach(([date, fields]) => {
+          next[date] = { ...(next[date] || {}), ...fields };
+        });
+        return next;
       });
-      setNotices(merged);
     };
     refresh();
     window.addEventListener('noticeItemsChanged', refresh);
@@ -655,7 +650,11 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
                       className={`notice-cell${isNoSchool ? ' notice-cell-noschool' : ''}${adminMode && !isNoSchool ? ' notice-cell-clickable' : ''}`}
                       onClick={() => adminMode && !isNoSchool && setNoticeModal({ dateStr, type: key })}
                     >
-                      <div className="notice-text">{val || (adminMode && !isNoSchool ? <span className="notice-placeholder">+ {label}</span> : '')}</div>
+                      <div className="notice-text">
+                        {val || (adminMode && !isNoSchool
+                          ? <span className="notice-placeholder">+ {label}</span>
+                          : '')}
+                      </div>
                     </td>
                   );
                 })}
