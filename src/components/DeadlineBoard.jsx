@@ -180,36 +180,47 @@ export default function DeadlineBoard({ adminMode }) {
               const allDone = doneCount === CLASSES.length;
 
               return (
-                <div key={item.id} className="deadline-item">
-                  <div className="deadline-item-top board-item-clickable" onClick={() => setSelected(item)}>
-                    <div className="board-item-dot" style={{ background: color, flexShrink: 0 }} />
-                    <div className="board-item-content">
-                      <div className="board-item-title">{item.title}</div>
-                      <div className="board-item-meta">
+                <div key={item.id} className="deadline-card">
+                  {/* 카드 헤더: 클릭 시 상세 모달 */}
+                  <div className="deadline-card-header" onClick={() => setSelected(item)}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="deadline-card-title">{item.title}</div>
+                      <div className="deadline-card-meta">
                         마감: {item.date}{item.submitPlace && <> · {item.submitPlace}</>}
+                        {item.fileNames?.length > 0 && <> · 📎 {item.fileNames.length}개</>}
                       </div>
                     </div>
-                    <span className="board-item-badge" style={{ background: color+'22', color }}>{label}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 2, color: allDone ? '#4caf50' : 'var(--text-muted)' }}>
+                    <span className="deadline-card-badge" style={{ background: color+'22', color }}>{label}</span>
+                    <span className="deadline-card-progress" style={{ color: allDone ? '#4caf50' : 'var(--text-muted)' }}>
                       {doneCount}/{CLASSES.length}
                     </span>
                   </div>
 
-                  <div className="deadline-class-row">
-                    <div className="deadline-class-labels">
-                      {CLASSES.map(cls => <span key={cls} className="deadline-cls-label">{cls}</span>)}
-                    </div>
-                    <div className="deadline-class-checks">
-                      {CLASSES.map(cls => (
-                        <label key={cls}
-                          className={`deadline-cls-check${checked[cls] ? ' done' : ''}`}
-                          title={`${cls} 제출 ${checked[cls] ? '완료 ✓' : '미완료'}`}
-                          onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={!!checked[cls]}
-                            onChange={() => handleToggle(item.id, cls)} />
-                        </label>
-                      ))}
-                    </div>
+                  {/* 체크 테이블 */}
+                  <div className="deadline-card-table-wrap" onClick={e => e.stopPropagation()}>
+                    <table className="deadline-cls-table">
+                      <thead>
+                        <tr>
+                          {CLASSES.map(cls => <th key={cls}>{cls}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {CLASSES.map(cls => (
+                            <td key={cls}>
+                              <label
+                                className={`deadline-cls-check${checked[cls] ? ' done' : ''}`}
+                                title={`${cls} 제출 ${checked[cls] ? '완료 ✓' : '미완료'}`}
+                              >
+                                <input type="checkbox" checked={!!checked[cls]}
+                                  onChange={() => handleToggle(item.id, cls)} />
+                              </label>
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               );
