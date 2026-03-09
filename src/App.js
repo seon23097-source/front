@@ -6,6 +6,7 @@ import DeadlineBoard from './components/DeadlineBoard';
 import NoticeBoard from './components/NoticeBoard';
 import ChatRoom from './components/ChatRoom';
 import MeetingBoard from './components/MeetingBoard';
+import SciencePanel from './components/SciencePanel';
 import './App.css';
 import { fetchNoticeItems, fetchBoardNotices, createNoticeItem, createBoardNotice, deleteNoticeItem, deleteBoardNotice } from './api/noticeApi';
 import { _setItemsCache, loadNoticeItems } from './components/Timetable';
@@ -177,12 +178,8 @@ export default function App() {
         )}
 
         {activeTab === 'science' && (
-          <div className="embed-placeholder">
-            <div className="embed-placeholder-inner">
-              <span className="embed-placeholder-icon">🔬</span>
-              <span className="embed-placeholder-title">과학준비물</span>
-              <span className="embed-placeholder-desc">연결할 문서나 링크를 설정해주세요.</span>
-            </div>
+          <div className="sci-fullscreen">
+            <SciencePanel adminMode={adminMode} />
           </div>
         )}
       </main>
