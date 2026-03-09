@@ -89,7 +89,7 @@ function CellChip({ entry, colorMap, onClick, compact = false, dimmed = false })
   const isSub = entry.is_substitute;
 
   const style = isSpecial
-    ? { backgroundColor: '#ffffff', border: `2.5px solid ${color.border_color}`, color: color.border_color }
+    ? { backgroundColor: 'var(--surface)', border: `2.5px solid ${color.border_color}`, color: color.border_color }
     : { backgroundColor: color.bg_color, border: `2px solid transparent`, color: color.text_color };
 
   return (
@@ -594,7 +594,13 @@ function EditModal({ cell, colorMap, onSave, onDelete, onClose }) {
 
 // weekOffset을 외부에서 제어할 수 있도록 prop으로 받거나 내부 state 사용
 export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
-  const [selectedClasses, setSelectedClasses] = useState(['4-1']);
+  const [selectedClasses, setSelectedClasses] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('schosche_selected_classes') || 'null');
+      if (Array.isArray(saved) && saved.length > 0) return saved;
+    } catch {}
+    return ['4-1'];
+  });
   const [entries, setEntries] = useState([]);
   const [colorMap, setColorMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -699,8 +705,13 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
       });
   }, []);
 
-  const toggleClass = (cls) =>
-    setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
+  const toggleClass = (cls) => {
+    setSelectedClasses(prev => {
+      const next = prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls];
+      localStorage.setItem('schosche_selected_classes', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const filteredEntries = entries.filter(e => !e.apply_date || weekDateSet.has(e.apply_date));
 
@@ -821,7 +832,7 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
               <button key={cls.className}
                 className={`class-btn special${active ? ' active' : ''}${focused ? ' focused' : ''}`}
                 style={active && color
-                  ? { backgroundColor: focused ? color.border_color : '#fff',
+                  ? { backgroundColor: focused ? color.border_color : 'var(--surface)',
                       color: focused ? '#fff' : color.border_color,
                       borderColor: color.border_color, borderWidth: '2px' }
                   : { borderColor: color?.border_color || '#aaa', color: color?.border_color || '#666' }}
@@ -832,8 +843,8 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
           })}
         </div>
         <div className="selector-actions">
-          <button className="sel-icon-btn" title="전체 선택" onClick={() => setSelectedClasses([...allClassNames])}>☑</button>
-          <button className="sel-icon-btn" title="전체 해제" onClick={() => { setSelectedClasses([]); setFocusedTeacher(null); }}>☐</button>
+          <button className="sel-icon-btn" title="전체 선택" onClick={() => { const all = [...allClassNames]; setSelectedClasses(all); localStorage.setItem('schosche_selected_classes', JSON.stringify(all)); }}>☑</button>
+          <button className="sel-icon-btn" title="전체 해제" onClick={() => { setSelectedClasses([]); setFocusedTeacher(null); localStorage.setItem('schosche_selected_classes', JSON.stringify([])); }}>☐</button>
         </div>
       </div>
 

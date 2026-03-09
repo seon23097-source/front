@@ -64,6 +64,14 @@
 .dark .btn-save { background: var(--accent) !important; }
 .dark .btn-cancel { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
 .dark .notice-placeholder { color: var(--text-muted) !important; }
+/* 전담 칩 — isSpecial 흰 배경 제거 (var(--surface)로 이미 수정됨, 혹시 남은 케이스 대비) */
+.dark .cell-chip { background-color: var(--surface2) !important; }
+.dark .class-btn.special.active { background-color: var(--surface) !important; }
+/* btn-delete 라이트 배경 다크모드 보정 */
+.dark .btn-delete { background: rgba(255,71,87,0.15) !important; color: var(--danger) !important; border-color: rgba(255,71,87,0.35) !important; }
+.dark .btn-delete:hover { background: var(--danger) !important; color: #fff !important; }
+/* 알림 배경 보정 */
+.dark .ap-btn-danger { background: rgba(255,71,87,0.15) !important; color: var(--danger) !important; border-color: rgba(255,71,87,0.35) !important; }
 
 /* 다크모드 전환 버튼 */
 .dark-toggle-btn {
@@ -1633,7 +1641,6 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
   width: 100%;
   height: 100%;
   border: none;
-  background: #fff;
 }
 
 /* ── 미연결 탭 placeholder ───────────────────────────── */
