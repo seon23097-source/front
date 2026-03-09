@@ -4,7 +4,7 @@ import {
   getFreeTeachers, saveSubstitute, clearSubstitute, fetchEvents,
 } from '../api/timetable';
 import { getClasses } from '../api/admin';
-import { fetchNoticeItems, createNoticeItem, deleteNoticeItem } from '../api/noticeApi';
+import { fetchNoticeItems, createNoticeItem, deleteNoticeItem, updateNoticeItem } from '../api/noticeApi';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = [1, 2, 3, 4, 5, 6];
@@ -162,54 +162,187 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
   );
 }
 
-function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
-  const [confirmId, setConfirmId] = useState(null);
-  const typeLabel = type === 'notice' ? '안내장' : '제출마감';
-  const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
+// ── type별 설정 헬퍼 ──────────────────────────────────
+function getTypeConfig(type) {
+  switch (type) {
+    case 'notice':     return { label: '안내장',   accent: '#FF6B35' };
+    case 'deadline':   return { label: '제출마감', accent: '#3D5AFE' };
+    case 'substitute': return { label: '보결',     accent: '#f59e0b' };
+    case 'etc':        return { label: '기타',     accent: '#8b5cf6' };
+    default:           return { label: type,       accent: '#888'    };
+  }
+}
 
-  const handleDelete = async (id) => {
+// ── 카드 인라인 편집 컴포넌트 ─────────────────────────
+function EditableItemCard({ item, type, adminMode, onUpdated, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle]           = useState(item.title || '');
+  const [displayDate, setDisplayDate] = useState(item.displayDate || '');
+  const [submitPlace, setSubmitPlace] = useState(item.submitPlace || '');
+  const [location, setLocation]     = useState(item.location || '');
+  const [content, setContent]       = useState(item.content || '');
+  const [saving, setSaving]         = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const { accent } = getTypeConfig(type);
+
+  const handleUpdate = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
     try {
-      await deleteNoticeItem(id);
-      _setItemsCache(loadNoticeItems().filter(i => i.id !== id), false);
+      const updated = await updateNoticeItem(item.id, {
+        title: title.trim(), displayDate, submitPlace: submitPlace.trim(),
+        location: location.trim(), content: content.trim(),
+      });
+      _setItemsCache(loadNoticeItems().map(i => i.id === item.id ? { ...i, ...updated } : i), false);
+      if (onUpdated) onUpdated();
+      setEditing(false);
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteNoticeItem(item.id);
+      _setItemsCache(loadNoticeItems().filter(i => i.id !== item.id), false);
+      if (onUpdated) onUpdated();
     } catch(e) { console.error(e); }
   };
+
+  if (editing) {
+    return (
+      <div style={{
+        padding: '12px', background: 'var(--surface2)', borderRadius: 8,
+        border: `1.5px solid ${accent}`, display: 'flex', flexDirection: 'column', gap: 8,
+      }}>
+        {type === 'notice' && (
+          <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            배부일
+            <input value={displayDate} onChange={e => setDisplayDate(e.target.value)}
+              style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)' }} />
+          </label>
+        )}
+        <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          제목
+          <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
+            style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 13,
+              background: 'var(--surface)', color: 'var(--text)' }} />
+        </label>
+        {type === 'notice' && (
+          <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            위치
+            <input value={location} onChange={e => setLocation(e.target.value)}
+              style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)' }} />
+          </label>
+        )}
+        {type === 'deadline' && (
+          <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            제출할 곳
+            <input value={submitPlace} onChange={e => setSubmitPlace(e.target.value)}
+              style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)' }} />
+          </label>
+        )}
+        {(type === 'substitute' || type === 'etc') && (
+          <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            내용
+            <textarea value={content} onChange={e => setContent(e.target.value)} rows={2}
+              style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)', resize: 'vertical', fontFamily: 'inherit' }} />
+          </label>
+        )}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
+          <button onClick={() => setEditing(false)}
+            style={{ padding: '4px 10px', borderRadius: 5, border: '1px solid var(--border)',
+              background: 'var(--surface)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}>
+            취소
+          </button>
+          <button onClick={handleUpdate} disabled={!title.trim() || saving}
+            style={{ padding: '4px 10px', borderRadius: 5, border: 'none',
+              background: accent, color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => adminMode && setEditing(true)}
+      style={{
+        padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8,
+        border: '1px solid var(--border)', cursor: adminMode ? 'pointer' : 'default',
+        transition: 'border-color 0.15s',
+      }}
+      onMouseEnter={e => { if (adminMode) e.currentTarget.style.borderColor = accent; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+      title={adminMode ? '클릭하여 수정' : ''}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
+            {item.title}
+          </div>
+          {type === 'notice' && item.location && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>📍 {item.location}</div>
+          )}
+          {type === 'deadline' && item.submitPlace && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>📍 제출할 곳: {item.submitPlace}</div>
+          )}
+          {(type === 'substitute' || type === 'etc') && item.content && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{item.content}</div>
+          )}
+          {item.fileNames?.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              {item.fileNames.map((name, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'var(--text-muted)' }}>📎 {name}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        {adminMode && (
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            <button onClick={e => { e.stopPropagation(); setEditing(true); }}
+              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4,
+                fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 6px' }}>✏️</button>
+            <button onClick={e => { e.stopPropagation(); setConfirmDel(true); }}
+              style={{ background: 'none', border: '1px solid #ffd0d3', borderRadius: 4,
+                fontSize: 11, color: 'var(--danger)', cursor: 'pointer', padding: '2px 6px' }}>🗑️</button>
+          </div>
+        )}
+      </div>
+      {confirmDel && (
+        <ConfirmModal message={`"${item.title}" 항목을 삭제할까요?`}
+          onConfirm={() => { handleDelete(); setConfirmDel(false); }}
+          onCancel={() => setConfirmDel(false)} />
+      )}
+    </div>
+  );
+}
+
+// ── 목록 모달 (카드 인라인 수정 포함) ────────────────
+function NoticeViewModal({ items, type, adminMode, onClose, onAdd, onUpdated }) {
+  const { label, accent } = getTypeConfig(type);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
-          <span className="modal-class">{typeLabel} 목록</span>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${accent}` }}>
+          <span className="modal-class">{label} 목록</span>
           <span className="modal-slot">{items[0]?.date}</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body" style={{ gap: 10 }}>
-          {items.map(item => (
-            <div key={item.id} style={{
-              padding: '10px 12px', background: 'var(--surface2)',
-              borderRadius: 8, border: '1px solid var(--border)',
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                {item.title}
-              </div>
-              {type === 'deadline' && item.submitPlace && (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>📍 제출할 곳: {item.submitPlace}</div>
-              )}
-              {item.fileNames?.length > 0 && (
-                <div style={{ marginTop: 6 }}>
-                  {item.fileNames.map((name, i) => (
-                    <div key={i} style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      📎 {name}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {adminMode && (
-                <button
-                  onClick={() => setConfirmId(item.id)}
-                  style={{ marginTop: 6, background: 'none', border: '1px solid #ffd0d3', borderRadius: 4, fontSize: 11, color: 'var(--danger)', cursor: 'pointer', padding: '2px 8px' }}
-                >🗑️ 삭제</button>
-              )}
+          {adminMode && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>
+              💡 카드를 클릭하면 내용을 수정할 수 있습니다.
             </div>
+          )}
+          {items.map(item => (
+            <EditableItemCard key={item.id} item={item} type={type}
+              adminMode={adminMode} onUpdated={onUpdated} />
           ))}
         </div>
         <div className="modal-footer">
@@ -220,30 +353,25 @@ function NoticeViewModal({ items, type, adminMode, onClose, onAdd }) {
           <button className="btn-cancel" onClick={onClose}>닫기</button>
         </div>
       </div>
-      {confirmId && (
-        <ConfirmModal
-          message="이 항목을 삭제할까요?"
-          onConfirm={() => { handleDelete(confirmId); setConfirmId(null); }}
-          onCancel={() => setConfirmId(null)}
-        />
-      )}
     </div>
   );
 }
 
+// ── 등록 모달 (type별 필드 분기) ─────────────────────
 function NoticeItemModal({ dateStr, type, onClose }) {
-  const typeLabel = type === 'notice' ? '안내장' : '제출마감';
-  const accentColor = type === 'notice' ? '#FF6B35' : '#3D5AFE';
-  const [title, setTitle] = useState('');
+  const { label, accent } = getTypeConfig(type);
+  const [title, setTitle]             = useState('');
   const [displayDate, setDisplayDate] = useState(() => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}월${d.getDate()}일`;
   });
   const [submitPlace, setSubmitPlace] = useState('');
-  const [files, setFiles] = useState([]);
+  const [location, setLocation]       = useState('연구실');  // 안내장 기본값
+  const [content, setContent]         = useState('');        // 보결/기타 내용
+  const [files, setFiles]             = useState([]);
+  const [saving, setSaving]           = useState(false);
 
-  const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
@@ -254,6 +382,8 @@ function NoticeItemModal({ dateStr, type, onClose }) {
         date: dateStr,
         displayDate,
         submitPlace: submitPlace.trim(),
+        location: location.trim(),
+        content: content.trim(),
         fileNames: files.map(f => f.name),
       });
       _setItemsCache([saved, ...loadNoticeItems()], false);
@@ -262,52 +392,81 @@ function NoticeItemModal({ dateStr, type, onClose }) {
     onClose();
   };
 
+  // 플레이스홀더/라벨 분기
+  const titlePlaceholder = {
+    notice: '안내장 제목',
+    deadline: '제출 항목명',
+    substitute: '보결 내용 요약',
+    etc: '기타 내용 요약',
+  }[type] || '제목';
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
-          <span className="modal-class">{typeLabel} 등록</span>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${accent}` }}>
+          <span className="modal-class">{label} 등록</span>
           <span className="modal-slot">{dateStr}</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
+          {/* 안내장: 배부일 */}
           {type === 'notice' && (
-            <label>
-              배부일
-              <input type="text" value={displayDate}
-                onChange={e => setDisplayDate(e.target.value)}
+            <label>배부일
+              <input type="text" value={displayDate} onChange={e => setDisplayDate(e.target.value)}
                 placeholder="예: 3월8일" />
             </label>
           )}
+
           <label>
-            {typeLabel} {type === 'deadline' ? '항목명' : '제목'}
-            <input type="text" value={title}
-              onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSave()}
-              placeholder={type === 'notice' ? '안내장 제목' : '제출 항목명'}
-              autoFocus />
+            {type === 'notice' ? '안내장 제목' : type === 'deadline' ? '항목명' : '제목'}
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !content && handleSave()}
+              placeholder={titlePlaceholder} autoFocus />
           </label>
+
+          {/* 안내장: 위치 (제목 아래, 기본값 연구실) */}
+          {type === 'notice' && (
+            <label>위치
+              <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+                placeholder="예: 연구실, 교무실" />
+            </label>
+          )}
+
+          {/* 제출마감: 마감일 + 제출할 곳 */}
           {type === 'deadline' && (
             <>
-              <label>
-                마감일
+              <label>마감일
                 <input type="text" value={dateStr} readOnly
                   style={{ background: 'var(--surface2)', color: 'var(--text-muted)' }} />
               </label>
-              <label>
-                제출할 곳
-                <input type="text" value={submitPlace}
-                  onChange={e => setSubmitPlace(e.target.value)}
+              <label>제출할 곳
+                <input type="text" value={submitPlace} onChange={e => setSubmitPlace(e.target.value)}
                   placeholder="예: 담임 선생님께, 교무실" />
               </label>
             </>
           )}
+
+          {/* 보결 / 기타: 내용 textarea */}
+          {(type === 'substitute' || type === 'etc') && (
+            <label>내용
+              <textarea value={content} onChange={e => setContent(e.target.value)}
+                placeholder={type === 'substitute' ? '보결 세부 내용 (선택사항)' : '기타 세부 내용 (선택사항)'}
+                rows={3}
+                style={{ width: '100%', resize: 'vertical', padding: '8px 10px',
+                  border: '1.5px solid var(--border)', borderRadius: 6,
+                  fontFamily: 'inherit', fontSize: 13,
+                  background: 'var(--surface)', color: 'var(--text)' }} />
+            </label>
+          )}
+
           <FileAttachField files={files} onChange={setFiles} />
         </div>
         <div className="modal-footer">
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button className="btn-save" onClick={handleSave} disabled={!title.trim()}>등록</button>
+          <button className="btn-save" onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving ? '등록 중...' : '등록'}
+          </button>
         </div>
       </div>
     </div>
@@ -598,12 +757,16 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
     const refresh = () => {
       const items = loadNoticeItems();
       const cellMap = {};
-      // 최신순 정렬 후 날짜별로 텍스트 누적
       [...items].sort((a, b) => a.createdAt - b.createdAt).forEach(item => {
         if (!cellMap[item.date]) cellMap[item.date] = {};
-        const line = item.type === 'notice'
-          ? `[${item.displayDate} 배부] ${item.title}`
-          : `• ${item.title}`;
+        let line;
+        if (item.type === 'notice') {
+          line = `[${item.displayDate} 배부] ${item.title}${item.location ? ` (${item.location})` : ''}`;
+        } else if (item.type === 'substitute' || item.type === 'etc') {
+          line = item.content ? `• ${item.title}: ${item.content}` : `• ${item.title}`;
+        } else {
+          line = `• ${item.title}`;
+        }
         const cur = cellMap[item.date][item.type] || '';
         cellMap[item.date][item.type] = cur ? cur + '\n' + line : line;
       });
@@ -818,6 +981,17 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
             adminMode={adminMode}
             onClose={() => setNoticeModal(null)}
             onAdd={() => setNoticeModal({ dateStr: noticeModal.dateStr, type: noticeModal.type })}
+            onUpdated={() => {
+              // 목록 새로고침: 현재 날짜+타입으로 뷰 아이템 갱신
+              const updated = loadNoticeItems().filter(
+                i => i.type === noticeModal.type && i.date === noticeModal.dateStr
+              );
+              if (updated.length > 0) {
+                setNoticeModal(prev => ({ ...prev, viewItems: updated }));
+              } else {
+                setNoticeModal(null);
+              }
+            }}
           />
         ) : (
           <NoticeItemModal

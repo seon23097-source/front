@@ -20,6 +20,16 @@ export async function createNoticeItem(data) {
   return await res.json();
 }
 
+export async function updateNoticeItem(id, data) {
+  const res = await fetch(`${BASE}/api/notices/items/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('update failed');
+  return await res.json();
+}
+
 export async function deleteNoticeItem(id) {
   await fetch(`${BASE}/api/notices/items/${id}`, { method: 'DELETE' });
 }
