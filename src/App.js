@@ -88,6 +88,24 @@ export default function App() {
             >
               📋 통합시간표
             </button>
+            <button
+              className={`header-tab${activeTab === 'googledoc' ? ' active' : ''}`}
+              onClick={() => setActiveTab('googledoc')}
+            >
+              📊 학교 구글 문서
+            </button>
+            <button
+              className={`header-tab${activeTab === 'meeting' ? ' active' : ''}`}
+              onClick={() => setActiveTab('meeting')}
+            >
+              🤝 업무협의
+            </button>
+            <button
+              className={`header-tab${activeTab === 'science' ? ' active' : ''}`}
+              onClick={() => setActiveTab('science')}
+            >
+              🔬 과학준비물
+            </button>
           </nav>
         </div>
 
@@ -137,6 +155,37 @@ export default function App() {
         {activeTab === 'timetable' && (
           <div className="timetable-fullscreen">
             <Timetable adminMode={adminMode} onWeekOffsetChange={setWeekOffset} />
+          </div>
+        )}
+
+        {activeTab === 'googledoc' && (
+          <div className="embed-fullscreen">
+            <iframe
+              src="https://docs.google.com/spreadsheets/d/1u6pdr7t3E7CbrmEVqUmessggHKYQjg6cB6i2W2yi85k/edit?gid=810467711#gid=810467711&rm=minimal"
+              title="학교 구글 문서"
+              className="embed-iframe"
+              allow="clipboard-read; clipboard-write"
+            />
+          </div>
+        )}
+
+        {activeTab === 'meeting' && (
+          <div className="embed-placeholder">
+            <div className="embed-placeholder-inner">
+              <span className="embed-placeholder-icon">🤝</span>
+              <span className="embed-placeholder-title">업무협의</span>
+              <span className="embed-placeholder-desc">연결할 문서나 링크를 설정해주세요.</span>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'science' && (
+          <div className="embed-placeholder">
+            <div className="embed-placeholder-inner">
+              <span className="embed-placeholder-icon">🔬</span>
+              <span className="embed-placeholder-title">과학준비물</span>
+              <span className="embed-placeholder-desc">연결할 문서나 링크를 설정해주세요.</span>
+            </div>
           </div>
         )}
       </main>
