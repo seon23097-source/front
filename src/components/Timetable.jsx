@@ -621,8 +621,10 @@ export default function Timetable({ adminMode = false, onWeekOffsetChange }) {
   }, []);
 
   const noticeRows = [
-    { key: 'notice',   labelLines: ['안','내','장'], rowClass: 'notice-row-notice',   label: '안내장'  },
-    { key: 'deadline', labelLines: ['제출','마감'],  rowClass: 'notice-row-deadline', label: '제출마감' },
+    { key: 'notice',     labelLines: ['안','내','장'], rowClass: 'notice-row-notice',      label: '안내장'  },
+    { key: 'deadline',   labelLines: ['제출','마감'],  rowClass: 'notice-row-deadline',    label: '제출마감' },
+    { key: 'substitute', labelLines: ['보','결'],      rowClass: 'notice-row-substitute',  label: '보결'    },
+    { key: 'etc',        labelLines: ['기','타'],      rowClass: 'notice-row-etc',         label: '기타'    },
   ];
 
   const weekLabel = weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난 주' : weekOffset === 1 ? '다음 주'

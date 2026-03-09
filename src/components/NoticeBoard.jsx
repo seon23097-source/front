@@ -181,15 +181,16 @@ export default function NoticeBoard({ adminMode, boardNotices = [], noticeItems 
   const [selected, setSelected]     = useState(null);
   const [confirmItem, setConfirmItem] = useState(null);
 
-  // 시간표 안내장 + 게시판 공지 합산 (렌더링만, fetch 없음)
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // 시간표 안내장: 배부일 기준 7일 이내만, 날짜 정보 보존
   const timetableNotices = noticeItems
     .filter(i => {
       if (i.type !== 'notice') return false;
       if (!i.date) return true;
-      const d = new Date(i.date); d.setHours(0,0,0,0);
-      const today = new Date(); today.setHours(0,0,0,0);
-      // 배부일 기준 7일 이내만 표시
-      return (today - d) / 86400000 <= 7;
+      const d = new Date(i.date); d.setHours(0, 0, 0, 0);
+      const diff = (d - today) / 86400000; // 양수 = 미래, 음수 = 과거
+      return diff >= -7 && diff <= 7;
     })
     .map(i => ({
       id: 'tt_' + i.id,
@@ -199,13 +200,33 @@ export default function NoticeBoard({ adminMode, boardNotices = [], noticeItems 
       fileNames: i.fileNames || [],
       pinned: false,
       createdAt: i.createdAt,
+      itemDate: i.date ? new Date(i.date).setHours(0, 0, 0, 0) : null,
     }));
 
-  const allItems = [...boardNotices, ...timetableNotices]
+  // 게시판 공지: 생성일 기준 7일 이내만
+  const filteredBoardNotices = boardNotices.filter(n => {
+    if (n.pinned) return true; // 고정 공지는 항상 표시
+    const created = n.createdAt ? new Date(n.createdAt) : null;
+    if (!created) return true;
+    return (today - created.setHours(0, 0, 0, 0)) / 86400000 <= 7;
+  });
+
+  // 날짜 기준 정렬: 현재에 가까운 순 (미래 > 오늘 > 과거), 고정 공지 최상단
+  const getDateScore = (item) => {
+    if (item.itemDate != null) return item.itemDate;
+    if (item.createdAt) return new Date(item.createdAt).setHours(0, 0, 0, 0);
+    return 0;
+  };
+
+  const allItems = [...filteredBoardNotices, ...timetableNotices]
     .sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return b.createdAt - a.createdAt;
+      // 현재 날짜와의 차이 절댓값이 작을수록(가까울수록) 상단
+      const diffA = Math.abs(getDateScore(a) - today.getTime());
+      const diffB = Math.abs(getDateScore(b) - today.getTime());
+      if (diffA !== diffB) return diffA - diffB;
+      return getDateScore(b) - getDateScore(a); // 같으면 최신순
     });
 
   const catColor = { notice: '#3D5AFE', announcement: '#FF6B35' };
