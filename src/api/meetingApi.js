@@ -35,6 +35,24 @@ export async function submitVote(postId, optionIds, voterName) {
   return await res.json();
 }
 
+export async function fetchVoters(postId) {
+  try {
+    const res = await fetch(`${BASE}/api/meeting/posts/${postId}/voters`);
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch { return []; }
+}
+
+export async function updateOption(postId, optionId, label) {
+  const res = await fetch(`${BASE}/api/meeting/posts/${postId}/options/${optionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+  if (!res.ok) throw new Error('update option failed');
+  return await res.json();
+}
+
 // ── 댓글 ─────────────────────────────────────────────
 export async function fetchComments(postId) {
   try {

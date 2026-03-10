@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchPosts, createPost, deletePost, submitVote, fetchComments, createComment, deleteComment } from '../api/meetingApi';
+import { fetchPosts, createPost, deletePost, submitVote, fetchVoters, updateOption, fetchComments, createComment, deleteComment } from '../api/meetingApi';
 
 const BASE = process.env.REACT_APP_API_URL || '';
 
@@ -35,7 +35,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 
 // ── 등록 모달 ─────────────────────────────────────────
 // 설문 질문 1개 구조: { question: string, options: string[] }
-const newQuestion = () => ({ question: '', options: ['', ''] });
+const newQuestion = () => ({ question: '', options: ['', ''], allowMultiple: false });
 
 function CreatePostModal({ onClose, onSaved, classes }) {
   const [postType, setPostType] = useState('opinion');
@@ -69,6 +69,10 @@ function CreatePostModal({ onClose, onSaved, classes }) {
   const removeQuestion = (qi) =>
     setQuestions(prev => prev.length > 1 ? prev.filter((_, i) => i !== qi) : prev);
 
+  // 복수선택 허용 토글
+  const toggleMultiple = (qi) =>
+    setQuestions(prev => prev.map((q, i) => i === qi ? { ...q, allowMultiple: !q.allowMultiple } : q));
+
   const surveyValid = postType !== 'survey' ||
     questions.every(q => q.question.trim() && q.options.filter(o => o.trim()).length >= 2);
 
@@ -81,7 +85,7 @@ function CreatePostModal({ onClose, onSaved, classes }) {
       const options = postType === 'survey'
         ? questions.flatMap((q, qi) =>
             q.options.filter(o => o.trim()).map(o => ({
-              label: `Q${qi + 1}|||${q.question.trim()}|||${o.trim()}`
+              label: `Q${qi + 1}|||${q.question.trim()}|||${o.trim()}|||${q.allowMultiple ? 'multi' : 'single'}`
             }))
           )
         : [];
@@ -175,6 +179,22 @@ function CreatePostModal({ onClose, onSaved, classes }) {
                         fontSize: 16, color: 'var(--text-muted)', padding: '0 2px',
                       }}>✕</button>
                     )}
+                  </div>
+                  {/* 복수선택 허용 토글 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, paddingLeft: 28 }}>
+                    <button onClick={() => toggleMultiple(qi)} style={{
+                      padding: '2px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                      border: '1.5px solid',
+                      borderColor: q.allowMultiple ? 'var(--accent)' : 'var(--border)',
+                      background: q.allowMultiple ? 'var(--accent-light)' : 'var(--surface)',
+                      color: q.allowMultiple ? 'var(--accent)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                    }}>
+                      {q.allowMultiple ? '☑ 복수선택 허용' : '☐ 단일선택'}
+                    </button>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                      {q.allowMultiple ? '여러 항목 동시 선택 가능' : '하나만 선택 가능'}
+                    </span>
                   </div>
 
                   {/* 답변 문항 */}
@@ -334,41 +354,53 @@ function parseSurveyGroups(options) {
   const legacy = [];
   (options || []).forEach(opt => {
     const parts = (opt.label || '').split('|||');
-    if (parts.length === 3) {
-      const [qKey, qText, aText] = parts;
-      if (!grouped[qKey]) grouped[qKey] = { qKey, qText, options: [] };
+    if (parts.length >= 3) {
+      const [qKey, qText, aText, mode] = parts;
+      if (!grouped[qKey]) grouped[qKey] = { qKey, qText, allowMultiple: mode === 'multi', options: [] };
       grouped[qKey].options.push({ ...opt, displayLabel: aText });
     } else {
       legacy.push({ ...opt, displayLabel: opt.label });
     }
   });
   const groups = Object.values(grouped);
-  if (legacy.length > 0) groups.push({ qKey: 'legacy', qText: '', options: legacy });
+  if (legacy.length > 0) groups.push({ qKey: 'legacy', qText: '', allowMultiple: true, options: legacy });
   return groups;
 }
 
-function SurveySection({ post, onVoted }) {
+function SurveySection({ post, onVoted, adminMode }) {
   const [voterName, setVoterName]     = useState('');
   const [selectedMap, setSelectedMap] = useState({});
   const [submitting, setSubmitting]   = useState(false);
-  const [tab, setTab]                 = useState('vote'); // 'vote' | 'result'
+  const [tab, setTab]                 = useState('vote');
+  const [voters, setVoters]           = useState(null);
+  const [editingOpt, setEditingOpt]   = useState(null); // { optId, value }
+  const [savingOpt, setSavingOpt]     = useState(false);
 
-  // 옵션은 항상 id 오름차순 고정 — 투표 결과에 따라 순서 안 바뀜
   const groups = parseSurveyGroups(
     [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id))
   );
 
-  const toggleOpt = (qKey, id) =>
+  useEffect(() => {
+    if (tab === 'result' && voters === null) {
+      fetchVoters(post.id).then(setVoters);
+    }
+  }, [tab, voters, post.id]);
+
+  const toggleOpt = (qKey, id, allowMultiple) =>
     setSelectedMap(prev => {
       const cur = prev[qKey] || [];
-      return { ...prev, [qKey]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] };
+      if (allowMultiple) {
+        return { ...prev, [qKey]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] };
+      } else {
+        return { ...prev, [qKey]: cur.includes(id) ? [] : [id] };
+      }
     });
 
   const allOptIds   = Object.values(selectedMap).flat();
   const allAnswered = groups.length > 0 && groups.every(g => (selectedMap[g.qKey] || []).length > 0);
-  const totalParticipants = groups.length > 0
-    ? Math.max(...groups.map(g => g.options.reduce((s, o) => s + (o.voteCount || 0), 0)))
-    : 0;
+  const participantCount = voters !== null
+    ? voters.length
+    : (groups[0]?.options.reduce((s, o) => s + (o.voteCount || 0), 0) ?? 0);
 
   const handleVote = async () => {
     if (!voterName.trim() || !allAnswered || submitting) return;
@@ -376,9 +408,33 @@ function SurveySection({ post, onVoted }) {
     try {
       await submitVote(post.id, allOptIds, voterName.trim());
       if (onVoted) await onVoted();
-      setTab('result'); // 투표 완료 → 결과 탭으로 전환
-    } catch(e) { console.error(e); }
+      setVoters(null);
+      setTab('result');
+    } catch(e) {
+      alert('이미 투표하셨거나 오류가 발생했습니다.');
+      console.error(e);
+    }
     setSubmitting(false);
+  };
+
+  const handleSaveOpt = async () => {
+    if (!editingOpt || !editingOpt.value.trim() || savingOpt) return;
+    setSavingOpt(true);
+    try {
+      const opt = post.options.find(o => o.id === editingOpt.optId);
+      const parts = (opt?.label || '').split('|||');
+      let newLabel;
+      if (parts.length >= 3) {
+        parts[2] = editingOpt.value.trim();
+        newLabel = parts.join('|||');
+      } else {
+        newLabel = editingOpt.value.trim();
+      }
+      await updateOption(post.id, editingOpt.optId, newLabel);
+      if (onVoted) await onVoted();
+      setEditingOpt(null);
+    } catch(e) { console.error(e); }
+    setSavingOpt(false);
   };
 
   return (
@@ -396,53 +452,92 @@ function SurveySection({ post, onVoted }) {
           }}>{label}</button>
         ))}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>
-          총 {totalParticipants}명 참여
+          {voters !== null ? `${participantCount}명 참여` : `${participantCount}표`}
         </span>
       </div>
 
       {groups.map((g, gi) => {
         const groupTotal = g.options.reduce((sum, o) => sum + (o.voteCount || 0), 0);
-        // 결과 탭: 득표순 정렬 / 투표 탭: 등록 순서 유지
         const displayOptions = tab === 'result'
           ? [...g.options].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0))
           : g.options;
+        const maxVote = Math.max(...g.options.map(o => o.voteCount || 0));
 
         return (
-          <div key={g.qKey} style={{ marginBottom: gi < groups.length - 1 ? 14 : 0 }}>
+          <div key={g.qKey} style={{ marginBottom: gi < groups.length - 1 ? 16 : 0 }}>
             {g.qText && (
               <div className="meeting-survey-question">
-                {tab === 'result' ? '📊' : '❓'} {g.qText}
+                {tab === 'result' ? '📊' : (g.allowMultiple ? '☑' : '◉')} {g.qText}
+                {tab === 'vote' && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6, fontWeight: 400 }}>
+                    ({g.allowMultiple ? '복수선택 가능' : '단일선택'})
+                  </span>
+                )}
               </div>
             )}
             <div className="meeting-survey-options">
               {displayOptions.map(opt => {
                 const pct = groupTotal > 0 ? Math.round((opt.voteCount || 0) / groupTotal * 100) : 0;
                 const checked = (selectedMap[g.qKey] || []).includes(opt.id);
-                const isTop = tab === 'result' && opt.voteCount > 0 &&
-                  opt.voteCount === Math.max(...g.options.map(o => o.voteCount || 0));
+                const isTop = tab === 'result' && maxVote > 0 && (opt.voteCount || 0) === maxVote;
+                const isEditing = editingOpt?.optId === opt.id;
 
                 return (
                   <div key={opt.id}
                     className={`meeting-survey-option${checked ? ' selected' : ''}`}
-                    onClick={() => tab === 'vote' && toggleOpt(g.qKey, opt.id)}
-                    style={{ cursor: tab === 'vote' ? 'pointer' : 'default',
-                      borderColor: isTop ? 'var(--accent)' : undefined }}
+                    onClick={() => !isEditing && tab === 'vote' && toggleOpt(g.qKey, opt.id, g.allowMultiple)}
+                    style={{
+                      cursor: tab === 'vote' && !isEditing ? 'pointer' : 'default',
+                      borderColor: isTop ? 'var(--accent)' : undefined,
+                    }}
                   >
                     <div className="meeting-survey-bar" style={{
                       width: tab === 'result' ? `${pct}%` : '0%',
                       background: isTop ? 'var(--accent-light)' : undefined,
                     }} />
                     <div className="meeting-survey-option-content">
-                      {tab === 'vote' && (
+                      {tab === 'vote' && !isEditing && (
                         <span className={`meeting-survey-checkbox${checked ? ' checked' : ''}`}>
-                          {checked ? '✓' : ''}
+                          {checked ? (g.allowMultiple ? '✓' : '●') : (g.allowMultiple ? '' : '○')}
                         </span>
                       )}
-                      <span className="meeting-survey-label" style={{ fontWeight: isTop ? 700 : undefined }}>
-                        {isTop && '🏆 '}{opt.displayLabel}
-                      </span>
-                      {tab === 'result' && (
-                        <span className="meeting-survey-count">{opt.voteCount || 0}표 ({pct}%)</span>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 5, flex: 1 }} onClick={e => e.stopPropagation()}>
+                          <input
+                            value={editingOpt.value}
+                            onChange={e => setEditingOpt(prev => ({ ...prev, value: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') handleSaveOpt(); if (e.key === 'Escape') setEditingOpt(null); }}
+                            autoFocus
+                            style={{ flex: 1, padding: '2px 6px', fontSize: 12,
+                              border: '1.5px solid var(--accent)', borderRadius: 4,
+                              background: 'var(--surface)', color: 'var(--text)' }}
+                          />
+                          <button onClick={handleSaveOpt} disabled={savingOpt}
+                            style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                              background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                            {savingOpt ? '…' : '저장'}
+                          </button>
+                          <button onClick={() => setEditingOpt(null)}
+                            style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                              background: 'var(--surface2)', color: 'var(--text-muted)',
+                              border: '1px solid var(--border)', cursor: 'pointer' }}>취소</button>
+                        </div>
+                      ) : (
+                        <span className="meeting-survey-label" style={{ fontWeight: isTop ? 700 : undefined }}>
+                          {isTop && tab === 'result' && '🏆 '}{opt.displayLabel}
+                        </span>
+                      )}
+                      {tab === 'result' && !isEditing && (
+                        <span className="meeting-survey-count" style={{ fontWeight: isTop ? 700 : undefined }}>
+                          {opt.voteCount || 0}표 ({pct}%)
+                        </span>
+                      )}
+                      {adminMode && !isEditing && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditingOpt({ optId: opt.id, value: opt.displayLabel }); }}
+                          style={{ marginLeft: 4, background: 'none', border: 'none',
+                            fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer',
+                            padding: '0 2px', opacity: 0.6, flexShrink: 0 }}>✏️</button>
                       )}
                     </div>
                   </div>
@@ -453,15 +548,13 @@ function SurveySection({ post, onVoted }) {
         );
       })}
 
-      {/* 투표 탭: 이름 입력 + 제출 */}
+      {/* 투표 탭 */}
       {tab === 'vote' && (
         <div className="meeting-survey-vote-row" style={{ marginTop: 12 }}>
           <input value={voterName} onChange={e => setVoterName(e.target.value)}
             placeholder="이름 입력 (필수)"
-            style={{
-              flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
-              borderRadius: 5, fontSize: 13, background: 'var(--surface)', color: 'var(--text)',
-            }} />
+            style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
+              borderRadius: 5, fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
           <button onClick={handleVote}
             disabled={!voterName.trim() || !allAnswered || submitting}
             className="btn-save" style={{ whiteSpace: 'nowrap', padding: '6px 14px' }}>
@@ -469,12 +562,37 @@ function SurveySection({ post, onVoted }) {
           </button>
         </div>
       )}
+
+      {/* 결과 탭: 투표자 목록 */}
+      {tab === 'result' && (
+        <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+            👥 투표자 목록
+          </div>
+          {voters === null ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>로딩 중...</div>
+          ) : voters.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>아직 투표자가 없습니다.</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {voters.map((v, i) => (
+                <span key={i} style={{
+                  fontSize: 11, padding: '2px 8px', borderRadius: 12,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  color: 'var(--text)', fontWeight: 500,
+                }}>{v.voterName}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── 게시글 상세 모달 ──────────────────────────────────
-function PostDetailModal({ post, adminMode, onClose, onDeleted, onVoted }) {
+function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onVoted }) {
+  const [post, setPost]             = useState(initialPost);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const accentColor = post.type === 'survey' ? '#f59e0b' : '#3D5AFE';
   const typeLabel   = post.type === 'survey' ? '📊 설문' : '💬 의견';
@@ -482,6 +600,14 @@ function PostDetailModal({ post, adminMode, onClose, onDeleted, onVoted }) {
   const handleDelete = async () => {
     try { await deletePost(post.id); onDeleted(); onClose(); } catch(e) { console.error(e); }
   };
+
+  // 투표 후: 목록 갱신 + 모달 내 post 최신화
+  const handleVoted = useCallback(async () => {
+    const data = await fetchPosts();
+    const updated = data.find(p => p.id === post.id);
+    if (updated) setPost(updated);
+    if (onVoted) onVoted(data);
+  }, [post.id, onVoted]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -516,7 +642,7 @@ function PostDetailModal({ post, adminMode, onClose, onDeleted, onVoted }) {
           )}
 
           {/* 설문 섹션 */}
-          {post.type === 'survey' && <SurveySection post={post} onVoted={onVoted} />}
+          {post.type === 'survey' && <SurveySection post={post} onVoted={handleVoted} adminMode={adminMode} />}
 
           {/* 댓글 섹션 (의견 타입만) */}
           {post.type === 'opinion' && <CommentsSection postId={post.id} adminMode={adminMode} />}
@@ -573,15 +699,11 @@ export default function MeetingBoard({ adminMode }) {
   const typeColor = { survey: '#f59e0b', opinion: '#3D5AFE' };
   const typeLabel = { survey: '📊 설문', opinion: '💬 의견' };
 
-  // 선택된 post 최신 상태 반영 (투표 후 갱신)
-  const refreshSelected = useCallback(async () => {
-    await loadPosts();
-    if (selected) {
-      const data = await fetchPosts();
-      const updated = data.find(p => p.id === selected.id);
-      if (updated) setSelected(updated);
-    }
-  }, [selected, loadPosts]);
+  // 투표 후 목록만 갱신 (모달 내 post 최신화는 PostDetailModal 내부에서 처리)
+  const refreshSelected = useCallback(async (updatedPosts) => {
+    if (updatedPosts) setPosts(updatedPosts);
+    else await loadPosts();
+  }, [loadPosts]);
 
   return (
     <div className="meeting-board">
@@ -615,7 +737,6 @@ export default function MeetingBoard({ adminMode }) {
           </div>
         )}
         {filtered.map(post => {
-          const totalVotes = post.options?.reduce((s, o) => s + (o.voteCount || 0), 0) || 0;
           const commentCount = post.commentCount || 0;
           return (
             <div key={post.id} className="meeting-post-item"
@@ -632,7 +753,7 @@ export default function MeetingBoard({ adminMode }) {
                 </div>
                 <div className="meeting-post-meta">
                   <span>{formatDate(post.createdAt)}</span>
-                  {post.type === 'survey' && <span>· 투표 {totalVotes}명</span>}
+                  {post.type === 'survey' && <span>· 참여 {post.voterCount ?? 0}명</span>}
                   {post.type === 'opinion' && commentCount > 0 && <span>· 댓글 {commentCount}</span>}
                   {post.fileNames?.length > 0 && <span>· 📎 {post.fileNames.length}</span>}
                 </div>
