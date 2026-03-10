@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchPosts, createPost, deletePost, submitVote, fetchVoters, updateOption, fetchComments, createComment, deleteComment } from '../api/meetingApi';
+import { fetchPosts, createPost, updatePost, deletePost, submitVote, fetchVoters, updateOption, fetchComments, createComment, deleteComment } from '../api/meetingApi';
 
 const BASE = process.env.REACT_APP_API_URL || '';
 
@@ -7,7 +7,9 @@ const BASE = process.env.REACT_APP_API_URL || '';
 function formatDate(ts) {
   if (!ts) return '';
   const d = new Date(ts);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  // KST = UTC+9
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCMonth() + 1}/${kst.getUTCDate()} ${String(kst.getUTCHours()).padStart(2, '0')}:${String(kst.getUTCMinutes()).padStart(2, '0')}`;
 }
 
 // ── 삭제 확인 모달 ────────────────────────────────────
@@ -33,7 +35,130 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
   );
 }
 
-// ── 등록 모달 ─────────────────────────────────────────
+// ── 게시글 수정 모달 ──────────────────────────────────
+function EditPostModal({ post, onClose, onSaved }) {
+  const [title, setTitle]     = useState(post.title || '');
+  const [content, setContent] = useState(post.content || '');
+  const [closed, setClosed]   = useState(post.closed || false);
+  const [saving, setSaving]   = useState(false);
+
+  // 설문인 경우: 질문 그룹별 allowMultiple 상태
+  const groups = post.type === 'survey' ? parseSurveyGroups(
+    [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id))
+  ) : [];
+  const [multiMap, setMultiMap] = useState(() => {
+    const m = {};
+    groups.forEach(g => { m[g.qKey] = g.allowMultiple; });
+    return m;
+  });
+
+  const handleSave = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
+    try {
+      // 복수선택 변경 시 해당 그룹 옵션 label 일괄 업데이트
+      if (post.type === 'survey') {
+        const sorted = [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id));
+        for (const opt of sorted) {
+          const parts = (opt.label || '').split('|||');
+          if (parts.length >= 3) {
+            const qKey = parts[0];
+            const newMode = multiMap[qKey] ? 'multi' : 'single';
+            if (parts[3] !== newMode) {
+              parts[3] = newMode;
+              await updateOption(post.id, opt.id, parts.join('|||'));
+            }
+          }
+        }
+      }
+      await updatePost(post.id, { title: title.trim(), content: content.trim(), closed });
+      await onSaved();
+      onClose();
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" style={{ width: 480, maxWidth: '96vw' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${post.type === 'survey' ? '#f59e0b' : '#3D5AFE'}` }}>
+          <span className="modal-class">✏️ 게시글 수정</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <label>제목
+            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+          </label>
+          <label>내용
+            <textarea value={content} onChange={e => setContent(e.target.value)}
+              rows={3} style={{ width: '100%', resize: 'vertical', padding: '8px 10px',
+                border: '1.5px solid var(--border)', borderRadius: 6,
+                fontFamily: 'inherit', fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)' }} />
+          </label>
+
+          {/* 설문: 질문별 복수선택 허용 변경 */}
+          {post.type === 'survey' && groups.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+                📋 설문 옵션
+              </div>
+              {groups.map(g => (
+                <div key={g.qKey} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', background: 'var(--surface2)',
+                  borderRadius: 6, border: '1px solid var(--border)', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>
+                    <b>{g.qKey}</b> {g.qText}
+                  </span>
+                  <button onClick={() => setMultiMap(prev => ({ ...prev, [g.qKey]: !prev[g.qKey] }))}
+                    style={{
+                      padding: '2px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                      border: '1.5px solid',
+                      borderColor: multiMap[g.qKey] ? 'var(--accent)' : 'var(--border)',
+                      background: multiMap[g.qKey] ? 'var(--accent-light)' : 'var(--surface)',
+                      color: multiMap[g.qKey] ? 'var(--accent)' : 'var(--text-muted)',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}>
+                    {multiMap[g.qKey] ? '☑ 복수선택' : '◉ 단일선택'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 설문 마감 여부 */}
+          {post.type === 'survey' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <button onClick={() => setClosed(prev => !prev)} style={{
+                padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
+                border: '1.5px solid',
+                borderColor: closed ? 'var(--danger)' : 'var(--border)',
+                background: closed ? 'rgba(239,68,68,0.08)' : 'var(--surface)',
+                color: closed ? 'var(--danger)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}>
+                {closed ? '🔒 투표 마감됨' : '🔓 투표 진행 중'}
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {closed ? '마감 시 결과만 표시됩니다' : '참여자 투표 가능'}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onClose}>취소</button>
+          <button className="btn-save" onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // 설문 질문 1개 구조: { question: string, options: string[] }
 const newQuestion = () => ({ question: '', options: ['', ''], allowMultiple: false });
 
@@ -381,6 +506,10 @@ function SurveySection({ post, onVoted, adminMode }) {
   );
 
   useEffect(() => {
+    if (isClosed) setTab('result');
+  }, [isClosed]);
+
+  useEffect(() => {
     if (tab === 'result' && voters === null) {
       fetchVoters(post.id).then(setVoters);
     }
@@ -441,16 +570,26 @@ function SurveySection({ post, onVoted, adminMode }) {
     <div className="meeting-survey">
       {/* 탭 */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {[['vote', '🗳️ 투표'], ['result', '📊 결과']].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{
-            padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
-            border: '1.5px solid',
-            borderColor: tab === key ? 'var(--accent)' : 'var(--border)',
-            background: tab === key ? 'var(--accent-light)' : 'var(--surface)',
-            color: tab === key ? 'var(--accent)' : 'var(--text-muted)',
-            cursor: 'pointer',
-          }}>{label}</button>
-        ))}
+        {[['vote', '🗳️ 투표'], ['result', '📊 결과']].map(([key, label]) => {
+          const isVoteTab = key === 'vote';
+          const disabled = isVoteTab && isClosed;
+          return (
+            <button key={key} onClick={() => !disabled && setTab(key)} style={{
+              padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
+              border: '1.5px solid',
+              borderColor: tab === key ? 'var(--accent)' : 'var(--border)',
+              background: tab === key ? 'var(--accent-light)' : 'var(--surface)',
+              color: disabled ? 'var(--text-muted)' : tab === key ? 'var(--accent)' : 'var(--text-muted)',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.45 : 1,
+            }}>{label}</button>
+          );
+        })}
+        {isClosed && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)',
+            background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 10,
+            alignSelf: 'center' }}>🔒 마감</span>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>
           {voters !== null ? `${participantCount}명 참여` : `${participantCount}표`}
         </span>
@@ -594,6 +733,7 @@ function SurveySection({ post, onVoted, adminMode }) {
 function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onVoted }) {
   const [post, setPost]             = useState(initialPost);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showEdit, setShowEdit]     = useState(false);
   const accentColor = post.type === 'survey' ? '#f59e0b' : '#3D5AFE';
   const typeLabel   = post.type === 'survey' ? '📊 설문' : '💬 의견';
 
@@ -601,8 +741,14 @@ function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onV
     try { await deletePost(post.id); onDeleted(); onClose(); } catch(e) { console.error(e); }
   };
 
-  // 투표 후: 목록 갱신 + 모달 내 post 최신화
   const handleVoted = useCallback(async () => {
+    const data = await fetchPosts();
+    const updated = data.find(p => p.id === post.id);
+    if (updated) setPost(updated);
+    if (onVoted) onVoted(data);
+  }, [post.id, onVoted]);
+
+  const handleEdited = useCallback(async () => {
     const data = await fetchPosts();
     const updated = data.find(p => p.id === post.id);
     if (updated) setPost(updated);
@@ -614,22 +760,23 @@ function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onV
       <div className="modal-box meeting-detail-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderLeft: `4px solid ${accentColor}` }}>
           <span className="modal-class">{typeLabel}</span>
+          {post.closed && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)',
+              background: 'rgba(239,68,68,0.1)', padding: '1px 7px', borderRadius: 10 }}>
+              🔒 마감
+            </span>
+          )}
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(post.createdAt)}</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body" style={{ gap: 14 }}>
-          {/* 제목 */}
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{post.title}</div>
-
-          {/* 본문 */}
           {post.content && (
             <div style={{
               fontSize: 13, lineHeight: 1.7, padding: '10px 12px',
               background: 'var(--surface2)', borderRadius: 6, whiteSpace: 'pre-wrap',
             }}>{post.content}</div>
           )}
-
-          {/* 첨부파일 */}
           {post.fileNames?.length > 0 && (
             <div>
               {post.fileNames.map((n, i) => (
@@ -640,16 +787,16 @@ function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onV
               ))}
             </div>
           )}
-
-          {/* 설문 섹션 */}
           {post.type === 'survey' && <SurveySection post={post} onVoted={handleVoted} adminMode={adminMode} />}
-
-          {/* 댓글 섹션 (의견 타입만) */}
           {post.type === 'opinion' && <CommentsSection postId={post.id} adminMode={adminMode} />}
         </div>
         <div className="modal-footer">
           {adminMode && (
-            <button className="btn-delete" onClick={() => setConfirmDelete(true)}>🗑️ 삭제</button>
+            <>
+              <button className="btn-delete" onClick={() => setConfirmDelete(true)}>🗑️ 삭제</button>
+              <button className="btn-cancel" style={{ marginLeft: 6 }}
+                onClick={() => setShowEdit(true)}>✏️ 수정</button>
+            </>
           )}
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>닫기</button>
@@ -658,6 +805,13 @@ function PostDetailModal({ post: initialPost, adminMode, onClose, onDeleted, onV
           <ConfirmModal message={`"${post.title}" 게시글을 삭제할까요?`}
             onConfirm={handleDelete}
             onCancel={() => setConfirmDelete(false)} />
+        )}
+        {showEdit && (
+          <EditPostModal
+            post={post}
+            onClose={() => setShowEdit(false)}
+            onSaved={handleEdited}
+          />
         )}
       </div>
     </div>
@@ -749,6 +903,11 @@ export default function MeetingBoard({ adminMode }) {
                     style={{ color: typeColor[post.type], borderColor: typeColor[post.type] }}>
                     {typeLabel[post.type]}
                   </span>
+                  {post.closed && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)',
+                      background: 'rgba(239,68,68,0.08)', padding: '1px 6px',
+                      borderRadius: 8, marginRight: 2 }}>마감</span>
+                  )}
                   {post.title}
                 </div>
                 <div className="meeting-post-meta">

@@ -24,6 +24,16 @@ export async function deletePost(id) {
   await fetch(`${BASE}/api/meeting/posts/${id}`, { method: 'DELETE' });
 }
 
+export async function updatePost(id, data) {
+  const res = await fetch(`${BASE}/api/meeting/posts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('update failed');
+  return await res.json();
+}
+
 // ── 설문 투표 ─────────────────────────────────────────
 export async function submitVote(postId, optionIds, voterName) {
   const res = await fetch(`${BASE}/api/meeting/posts/${postId}/vote`, {

@@ -81,6 +81,7 @@ export default function ResourcesPanel({ adminMode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [checkedIds, setCheckedIds] = useState(new Set());
   const [contextMenu, setContextMenu] = useState(null); // { x, y, item }
   const [renameItem, setRenameItem] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -111,6 +112,7 @@ export default function ResourcesPanel({ adminMode }) {
 
   const navigateTo = (folderId) => {
     setSelected(null);
+    setCheckedIds(new Set());
     setCurrentFolderId(folderId);
   };
 
@@ -124,6 +126,36 @@ export default function ResourcesPanel({ adminMode }) {
     a.href = getDriveDownloadUrl(item.id);
     a.download = item.name;
     a.click();
+  };
+
+  const toggleCheck = (e, itemId) => {
+    e.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleCheckAll = () => {
+    const allFileIds = fileItems.map(f => f.id);
+    if (allFileIds.every(id => checkedIds.has(id))) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(allFileIds));
+    }
+  };
+
+  const handleBulkDownload = () => {
+    const targets = fileItems.filter(f => checkedIds.has(f.id));
+    targets.forEach((item, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = getDriveDownloadUrl(item.id);
+        a.download = item.name;
+        a.click();
+      }, i * 300); // 브라우저 팝업 차단 방지용 300ms 간격
+    });
   };
 
   const handleContextMenu = (e, item) => {
@@ -210,6 +242,12 @@ export default function ResourcesPanel({ adminMode }) {
           <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
             200MB 이하
           </span>
+          {checkedIds.size > 0 && (
+            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }}
+              onClick={handleBulkDownload}>
+              ⬇️ {checkedIds.size}개 다운로드
+            </button>
+          )}
           <button className="res-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             {uploading ? '⏳' : '⬆️'} 업로드
           </button>
@@ -260,6 +298,14 @@ export default function ResourcesPanel({ adminMode }) {
           <>
             {/* 컬럼 헤더 */}
             <div className="res-list-header">
+              <span className="res-col-check">
+                <input type="checkbox"
+                  checked={fileItems.length > 0 && fileItems.every(f => checkedIds.has(f.id))}
+                  onChange={toggleCheckAll}
+                  title="전체 선택"
+                  style={{ cursor: 'pointer' }}
+                />
+              </span>
               <span className="res-col-name">이름</span>
               <span className="res-col-date">수정일</span>
               <span className="res-col-size">크기</span>
@@ -304,6 +350,7 @@ export default function ResourcesPanel({ adminMode }) {
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
               >
+                <span className="res-col-check" /> {/* 폴더는 체크박스 없음 */}
                 <span className="res-row-icon">📁</span>
                 {renameItem?.id === item.id ? (
                   <input
@@ -330,11 +377,18 @@ export default function ResourcesPanel({ adminMode }) {
             {fileItems.map(item => (
               <div
                 key={item.id}
-                className={`res-list-row${selected === item.id ? ' res-selected' : ''}`}
+                className={`res-list-row${selected === item.id ? ' res-selected' : ''}${checkedIds.has(item.id) ? ' res-checked' : ''}`}
                 onClick={() => setSelected(item.id)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
               >
+                <span className="res-col-check" onClick={e => toggleCheck(e, item.id)}>
+                  <input type="checkbox"
+                    checked={checkedIds.has(item.id)}
+                    onChange={e => toggleCheck(e, item.id)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </span>
                 <span className="res-row-icon">
                   <FileIcon mimeType={item.mimeType} isFolder={false} size={18} />
                 </span>
