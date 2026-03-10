@@ -35,130 +35,6 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
   );
 }
 
-// ── 게시글 수정 모달 ──────────────────────────────────
-function EditPostModal({ post, onClose, onSaved }) {
-  const [title, setTitle]     = useState(post.title || '');
-  const [content, setContent] = useState(post.content || '');
-  const [closed, setClosed]   = useState(post.closed || false);
-  const [saving, setSaving]   = useState(false);
-
-  // 설문인 경우: 질문 그룹별 allowMultiple 상태
-  const groups = post.type === 'survey' ? parseSurveyGroups(
-    [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id))
-  ) : [];
-  const [multiMap, setMultiMap] = useState(() => {
-    const m = {};
-    groups.forEach(g => { m[g.qKey] = g.allowMultiple; });
-    return m;
-  });
-
-  const handleSave = async () => {
-    if (!title.trim() || saving) return;
-    setSaving(true);
-    try {
-      // 복수선택 변경 시 해당 그룹 옵션 label 일괄 업데이트
-      if (post.type === 'survey') {
-        const sorted = [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id));
-        for (const opt of sorted) {
-          const parts = (opt.label || '').split('|||');
-          if (parts.length >= 3) {
-            const qKey = parts[0];
-            const newMode = multiMap[qKey] ? 'multi' : 'single';
-            if (parts[3] !== newMode) {
-              parts[3] = newMode;
-              await updateOption(post.id, opt.id, parts.join('|||'));
-            }
-          }
-        }
-      }
-      await updatePost(post.id, { title: title.trim(), content: content.trim(), closed });
-      await onSaved();
-      onClose();
-    } catch(e) { console.error(e); }
-    setSaving(false);
-  };
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" style={{ width: 480, maxWidth: '96vw' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ borderLeft: `4px solid ${post.type === 'survey' ? '#f59e0b' : '#3D5AFE'}` }}>
-          <span className="modal-class">✏️ 게시글 수정</span>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">
-          <label>제목
-            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
-          </label>
-          <label>내용
-            <textarea value={content} onChange={e => setContent(e.target.value)}
-              rows={3} style={{ width: '100%', resize: 'vertical', padding: '8px 10px',
-                border: '1.5px solid var(--border)', borderRadius: 6,
-                fontFamily: 'inherit', fontSize: 13,
-                background: 'var(--surface)', color: 'var(--text)' }} />
-          </label>
-
-          {/* 설문: 질문별 복수선택 허용 변경 */}
-          {post.type === 'survey' && groups.length > 0 && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-                📋 설문 옵션
-              </div>
-              {groups.map(g => (
-                <div key={g.qKey} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 12px', background: 'var(--surface2)',
-                  borderRadius: 6, border: '1px solid var(--border)', marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>
-                    <b>{g.qKey}</b> {g.qText}
-                  </span>
-                  <button onClick={() => setMultiMap(prev => ({ ...prev, [g.qKey]: !prev[g.qKey] }))}
-                    style={{
-                      padding: '2px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                      border: '1.5px solid',
-                      borderColor: multiMap[g.qKey] ? 'var(--accent)' : 'var(--border)',
-                      background: multiMap[g.qKey] ? 'var(--accent-light)' : 'var(--surface)',
-                      color: multiMap[g.qKey] ? 'var(--accent)' : 'var(--text-muted)',
-                      cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}>
-                    {multiMap[g.qKey] ? '☑ 복수선택' : '◉ 단일선택'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 설문 마감 여부 */}
-          {post.type === 'survey' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-              <button onClick={() => setClosed(prev => !prev)} style={{
-                padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
-                border: '1.5px solid',
-                borderColor: closed ? 'var(--danger)' : 'var(--border)',
-                background: closed ? 'rgba(239,68,68,0.08)' : 'var(--surface)',
-                color: closed ? 'var(--danger)' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}>
-                {closed ? '🔒 투표 마감됨' : '🔓 투표 진행 중'}
-              </button>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {closed ? '마감 시 결과만 표시됩니다' : '참여자 투표 가능'}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
-          <div style={{ flex: 1 }} />
-          <button className="btn-cancel" onClick={onClose}>취소</button>
-          <button className="btn-save" onClick={handleSave} disabled={!title.trim() || saving}>
-            {saving ? '저장 중...' : '저장'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
 // 설문 질문 1개 구조: { question: string, options: string[] }
 const newQuestion = () => ({ question: '', options: ['', ''], allowMultiple: false });
 
@@ -492,13 +368,129 @@ function parseSurveyGroups(options) {
   return groups;
 }
 
+// ── 게시글 수정 모달 ──────────────────────────────────
+function EditPostModal({ post, onClose, onSaved }) {
+  const [title, setTitle]     = useState(post.title || '');
+  const [content, setContent] = useState(post.content || '');
+  const [closed, setClosed]   = useState(!!post.closed);
+  const [saving, setSaving]   = useState(false);
+
+  const groups = post.type === 'survey' ? parseSurveyGroups(
+    [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id))
+  ) : [];
+  const [multiMap, setMultiMap] = useState(() => {
+    const m = {};
+    groups.forEach(g => { m[g.qKey] = g.allowMultiple; });
+    return m;
+  });
+
+  const handleSave = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (post.type === 'survey') {
+        const sorted = [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id));
+        for (const opt of sorted) {
+          const parts = (opt.label || '').split('|||');
+          if (parts.length >= 3) {
+            const qKey = parts[0];
+            const newMode = multiMap[qKey] ? 'multi' : 'single';
+            if (parts[3] !== newMode) {
+              parts[3] = newMode;
+              await updateOption(post.id, opt.id, parts.join('|||'));
+            }
+          }
+        }
+      }
+      await updatePost(post.id, { title: title.trim(), content: content.trim(), closed });
+      await onSaved();
+      onClose();
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" style={{ width: 480, maxWidth: '96vw' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderLeft: `4px solid ${post.type === 'survey' ? '#f59e0b' : '#3D5AFE'}` }}>
+          <span className="modal-class">✏️ 게시글 수정</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <label>제목
+            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+          </label>
+          <label>내용
+            <textarea value={content} onChange={e => setContent(e.target.value)}
+              rows={3} style={{ width: '100%', resize: 'vertical', padding: '8px 10px',
+                border: '1.5px solid var(--border)', borderRadius: 6,
+                fontFamily: 'inherit', fontSize: 13,
+                background: 'var(--surface)', color: 'var(--text)' }} />
+          </label>
+          {post.type === 'survey' && groups.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>📋 설문 옵션</div>
+              {groups.map(g => (
+                <div key={g.qKey} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', background: 'var(--surface2)',
+                  borderRadius: 6, border: '1px solid var(--border)', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>
+                    <b>{g.qKey}</b> {g.qText}
+                  </span>
+                  <button onClick={() => setMultiMap(prev => ({ ...prev, [g.qKey]: !prev[g.qKey] }))} style={{
+                    padding: '2px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                    border: '1.5px solid',
+                    borderColor: multiMap[g.qKey] ? 'var(--accent)' : 'var(--border)',
+                    background: multiMap[g.qKey] ? 'var(--accent-light)' : 'var(--surface)',
+                    color: multiMap[g.qKey] ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {multiMap[g.qKey] ? '☑ 복수선택' : '◉ 단일선택'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {post.type === 'survey' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <button onClick={() => setClosed(prev => !prev)} style={{
+                padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
+                border: '1.5px solid',
+                borderColor: closed ? 'var(--danger)' : 'var(--border)',
+                background: closed ? 'rgba(239,68,68,0.08)' : 'var(--surface)',
+                color: closed ? 'var(--danger)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}>
+                {closed ? '🔒 투표 마감됨' : '🔓 투표 진행 중'}
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {closed ? '마감 시 결과만 표시됩니다' : '참여자 투표 가능'}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <div style={{ flex: 1 }} />
+          <button className="btn-cancel" onClick={onClose}>취소</button>
+          <button className="btn-save" onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SurveySection({ post, onVoted, adminMode }) {
+  const isClosed = !!post.closed;
+
   const [voterName, setVoterName]     = useState('');
   const [selectedMap, setSelectedMap] = useState({});
   const [submitting, setSubmitting]   = useState(false);
-  const [tab, setTab]                 = useState('vote');
+  const [tab, setTab]                 = useState(isClosed ? 'result' : 'vote');
   const [voters, setVoters]           = useState(null);
-  const [editingOpt, setEditingOpt]   = useState(null); // { optId, value }
+  const [editingOpt, setEditingOpt]   = useState(null);
   const [savingOpt, setSavingOpt]     = useState(false);
 
   const groups = parseSurveyGroups(
