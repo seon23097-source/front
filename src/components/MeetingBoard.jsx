@@ -348,13 +348,15 @@ function parseSurveyGroups(options) {
 }
 
 function SurveySection({ post, onVoted }) {
-  const [voterName, setVoterName]       = useState('');
-  // 질문별 선택: { [qKey]: optId[] }
-  const [selectedMap, setSelectedMap]   = useState({});
-  const [submitting, setSubmitting]     = useState(false);
-  const [submitted, setSubmitted]       = useState(false);
+  const [voterName, setVoterName]     = useState('');
+  const [selectedMap, setSelectedMap] = useState({});
+  const [submitting, setSubmitting]   = useState(false);
+  const [tab, setTab]                 = useState('vote'); // 'vote' | 'result'
 
-  const groups = parseSurveyGroups(post.options);
+  // 옵션은 항상 id 오름차순 고정 — 투표 결과에 따라 순서 안 바뀜
+  const groups = parseSurveyGroups(
+    [...(post.options || [])].sort((a, b) => Number(a.id) - Number(b.id))
+  );
 
   const toggleOpt = (qKey, id) =>
     setSelectedMap(prev => {
@@ -362,45 +364,86 @@ function SurveySection({ post, onVoted }) {
       return { ...prev, [qKey]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] };
     });
 
-  const allOptIds = Object.values(selectedMap).flat();
+  const allOptIds   = Object.values(selectedMap).flat();
   const allAnswered = groups.length > 0 && groups.every(g => (selectedMap[g.qKey] || []).length > 0);
+  const totalParticipants = groups.length > 0
+    ? Math.max(...groups.map(g => g.options.reduce((s, o) => s + (o.voteCount || 0), 0)))
+    : 0;
 
   const handleVote = async () => {
     if (!voterName.trim() || !allAnswered || submitting) return;
     setSubmitting(true);
     try {
       await submitVote(post.id, allOptIds, voterName.trim());
-      setSubmitted(true);
       if (onVoted) await onVoted();
+      setTab('result'); // 투표 완료 → 결과 탭으로 전환
     } catch(e) { console.error(e); }
     setSubmitting(false);
   };
 
   return (
     <div className="meeting-survey">
+      {/* 탭 */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {[['vote', '🗳️ 투표'], ['result', '📊 결과']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            padding: '4px 14px', borderRadius: 5, fontSize: 12, fontWeight: 700,
+            border: '1.5px solid',
+            borderColor: tab === key ? 'var(--accent)' : 'var(--border)',
+            background: tab === key ? 'var(--accent-light)' : 'var(--surface)',
+            color: tab === key ? 'var(--accent)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}>{label}</button>
+        ))}
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>
+          총 {totalParticipants}명 참여
+        </span>
+      </div>
+
       {groups.map((g, gi) => {
         const groupTotal = g.options.reduce((sum, o) => sum + (o.voteCount || 0), 0);
+        // 결과 탭: 득표순 정렬 / 투표 탭: 등록 순서 유지
+        const displayOptions = tab === 'result'
+          ? [...g.options].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0))
+          : g.options;
+
         return (
-          <div key={g.qKey} style={{ marginBottom: gi < groups.length - 1 ? 16 : 0 }}>
+          <div key={g.qKey} style={{ marginBottom: gi < groups.length - 1 ? 14 : 0 }}>
             {g.qText && (
-              <div className="meeting-survey-question">📊 {g.qText}</div>
+              <div className="meeting-survey-question">
+                {tab === 'result' ? '📊' : '❓'} {g.qText}
+              </div>
             )}
             <div className="meeting-survey-options">
-              {g.options.map(opt => {
+              {displayOptions.map(opt => {
                 const pct = groupTotal > 0 ? Math.round((opt.voteCount || 0) / groupTotal * 100) : 0;
                 const checked = (selectedMap[g.qKey] || []).includes(opt.id);
+                const isTop = tab === 'result' && opt.voteCount > 0 &&
+                  opt.voteCount === Math.max(...g.options.map(o => o.voteCount || 0));
+
                 return (
                   <div key={opt.id}
                     className={`meeting-survey-option${checked ? ' selected' : ''}`}
-                    onClick={() => !submitted && toggleOpt(g.qKey, opt.id)}
+                    onClick={() => tab === 'vote' && toggleOpt(g.qKey, opt.id)}
+                    style={{ cursor: tab === 'vote' ? 'pointer' : 'default',
+                      borderColor: isTop ? 'var(--accent)' : undefined }}
                   >
-                    <div className="meeting-survey-bar" style={{ width: `${pct}%` }} />
+                    <div className="meeting-survey-bar" style={{
+                      width: tab === 'result' ? `${pct}%` : '0%',
+                      background: isTop ? 'var(--accent-light)' : undefined,
+                    }} />
                     <div className="meeting-survey-option-content">
-                      <span className={`meeting-survey-checkbox${checked ? ' checked' : ''}`}>
-                        {checked ? '✓' : ''}
+                      {tab === 'vote' && (
+                        <span className={`meeting-survey-checkbox${checked ? ' checked' : ''}`}>
+                          {checked ? '✓' : ''}
+                        </span>
+                      )}
+                      <span className="meeting-survey-label" style={{ fontWeight: isTop ? 700 : undefined }}>
+                        {isTop && '🏆 '}{opt.displayLabel}
                       </span>
-                      <span className="meeting-survey-label">{opt.displayLabel}</span>
-                      <span className="meeting-survey-count">{opt.voteCount || 0}표 ({pct}%)</span>
+                      {tab === 'result' && (
+                        <span className="meeting-survey-count">{opt.voteCount || 0}표 ({pct}%)</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -409,8 +452,10 @@ function SurveySection({ post, onVoted }) {
           </div>
         );
       })}
-      {!submitted ? (
-        <div className="meeting-survey-vote-row">
+
+      {/* 투표 탭: 이름 입력 + 제출 */}
+      {tab === 'vote' && (
+        <div className="meeting-survey-vote-row" style={{ marginTop: 12 }}>
           <input value={voterName} onChange={e => setVoterName(e.target.value)}
             placeholder="이름 입력 (필수)"
             style={{
@@ -423,14 +468,7 @@ function SurveySection({ post, onVoted }) {
             {submitting ? '제출 중...' : '투표'}
           </button>
         </div>
-      ) : (
-        <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, marginTop: 8 }}>
-          ✅ 투표가 완료되었습니다.
-        </div>
       )}
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-        총 {(post.options || []).reduce((sum, o) => sum + (o.voteCount || 0), 0)}표 참여
-      </div>
     </div>
   );
 }
