@@ -521,7 +521,7 @@ function SurveySection({ post, onVoted, adminMode }) {
   const allAnswered = groups.length > 0 && groups.every(g => (selectedMap[g.qKey] || []).length > 0);
   const participantCount = voters !== null
     ? voters.length
-    : (groups[0]?.options.reduce((s, o) => s + (o.voteCount || 0), 0) ?? 0);
+    : (post.voterCount ?? 0);
 
   const handleVote = async () => {
     if (!voterName.trim() || !allAnswered || submitting) return;
