@@ -429,7 +429,7 @@ function SurveySection({ post, onVoted }) {
         </div>
       )}
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-        총 {totalVotes}표 참여
+        총 {(post.options || []).reduce((sum, o) => sum + (o.voteCount || 0), 0)}표 참여
       </div>
     </div>
   );
