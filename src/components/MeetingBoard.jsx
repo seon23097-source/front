@@ -34,34 +34,66 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 }
 
 // ── 등록 모달 ─────────────────────────────────────────
-function CreatePostModal({ onClose, onSaved, classes }) {
-  const [postType, setPostType]   = useState('opinion'); // 'survey' | 'opinion'
-  const [title, setTitle]         = useState('');
-  const [content, setContent]     = useState('');
-  const [files, setFiles]         = useState([]);
-  // 설문 전용
-  const [surveyQuestion, setSurveyQuestion] = useState('');
-  const [selectedClasses, setSelectedClasses] = useState([]);
-  const [saving, setSaving] = useState(false);
+// 설문 질문 1개 구조: { question: string, options: string[] }
+const newQuestion = () => ({ question: '', options: ['', ''] });
 
-  const toggleClass = (cls) =>
-    setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
+function CreatePostModal({ onClose, onSaved, classes }) {
+  const [postType, setPostType] = useState('opinion');
+  const [title, setTitle]       = useState('');
+  const [content, setContent]   = useState('');
+  const [files, setFiles]       = useState([]);
+  const [saving, setSaving]     = useState(false);
+
+  // 설문 전용: 질문 목록 (각 질문은 question + options 배열)
+  const [questions, setQuestions] = useState([newQuestion()]);
+
+  // 질문 텍스트 변경
+  const setQText = (qi, val) =>
+    setQuestions(prev => prev.map((q, i) => i === qi ? { ...q, question: val } : q));
+  // 답변 문항 변경
+  const setOptText = (qi, oi, val) =>
+    setQuestions(prev => prev.map((q, i) => i !== qi ? q : {
+      ...q, options: q.options.map((o, j) => j === oi ? val : o)
+    }));
+  // 답변 문항 추가
+  const addOpt = (qi) =>
+    setQuestions(prev => prev.map((q, i) => i !== qi ? q : { ...q, options: [...q.options, ''] }));
+  // 답변 문항 삭제
+  const removeOpt = (qi, oi) =>
+    setQuestions(prev => prev.map((q, i) => i !== qi ? q : {
+      ...q, options: q.options.filter((_, j) => j !== oi)
+    }));
+  // 질문 추가
+  const addQuestion = () => setQuestions(prev => [...prev, newQuestion()]);
+  // 질문 삭제
+  const removeQuestion = (qi) =>
+    setQuestions(prev => prev.length > 1 ? prev.filter((_, i) => i !== qi) : prev);
+
+  const surveyValid = postType !== 'survey' ||
+    questions.every(q => q.question.trim() && q.options.filter(o => o.trim()).length >= 2);
 
   const handleSave = async () => {
-    if (!title.trim() || saving) return;
-    if (postType === 'survey' && selectedClasses.length === 0) return;
+    if (!title.trim() || saving || !surveyValid) return;
     setSaving(true);
     try {
+      // 설문: 각 질문의 답변 문항을 "Q1번호|질문텍스트|답변" 형식 label로 flat하게 전달
+      // 렌더링 시 파싱해서 질문별로 그룹핑
+      const options = postType === 'survey'
+        ? questions.flatMap((q, qi) =>
+            q.options.filter(o => o.trim()).map(o => ({
+              label: `Q${qi + 1}|||${q.question.trim()}|||${o.trim()}`
+            }))
+          )
+        : [];
       await createPost({
         type: postType,
         title: title.trim(),
         content: content.trim(),
         fileNames: files.map(f => f.name),
-        // 설문: 선택된 반 목록을 options로 전달
-        options: postType === 'survey'
-          ? selectedClasses.map(cls => ({ label: cls }))
-          : [],
-        surveyQuestion: postType === 'survey' ? surveyQuestion.trim() : '',
+        options,
+        surveyQuestion: postType === 'survey'
+          ? questions.map(q => q.question.trim()).join(' / ')
+          : '',
       });
       await onSaved();
       onClose();
@@ -69,31 +101,28 @@ function CreatePostModal({ onClose, onSaved, classes }) {
     setSaving(false);
   };
 
-  const regularClasses = classes.filter(c => !c.isSpecial);
-
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" style={{ width: 460, maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ width: 520, maxWidth: '96vw', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderLeft: `4px solid ${postType === 'survey' ? '#f59e0b' : '#3D5AFE'}` }}>
           <span className="modal-class">업무협의 등록</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body">
-          {/* 타입 선택 */}
+        <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
+          {/* 종류 선택 */}
           <label>종류
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              {[
-                { val: 'opinion', icon: '💬', label: '의견' },
-                { val: 'survey',  icon: '📊', label: '설문' },
-              ].map(({ val, icon, label }) => (
-                <button key={val} onClick={() => setPostType(val)} style={{
-                  flex: 1, padding: 8, borderRadius: 6, border: '1.5px solid',
-                  borderColor: postType === val ? (val === 'survey' ? '#f59e0b' : 'var(--accent)') : 'var(--border)',
-                  background: postType === val ? (val === 'survey' ? 'rgba(245,158,11,0.08)' : 'var(--accent-light)') : 'var(--surface)',
-                  color: postType === val ? (val === 'survey' ? '#b45309' : 'var(--accent)') : 'var(--text-muted)',
-                  fontWeight: 700, cursor: 'pointer', fontSize: 13,
-                }}>{icon} {label}</button>
-              ))}
+              {[{ val: 'opinion', icon: '💬', label: '의견' }, { val: 'survey', icon: '📊', label: '설문' }]
+                .map(({ val, icon, label }) => (
+                  <button key={val} onClick={() => setPostType(val)} style={{
+                    flex: 1, padding: 8, borderRadius: 6, border: '1.5px solid',
+                    borderColor: postType === val ? (val === 'survey' ? '#f59e0b' : 'var(--accent)') : 'var(--border)',
+                    background: postType === val ? (val === 'survey' ? 'rgba(245,158,11,0.08)' : 'var(--accent-light)') : 'var(--surface)',
+                    color: postType === val ? (val === 'survey' ? '#b45309' : 'var(--accent)') : 'var(--text-muted)',
+                    fontWeight: 700, cursor: 'pointer', fontSize: 13,
+                  }}>{icon} {label}</button>
+                ))}
             </div>
           </label>
 
@@ -113,46 +142,79 @@ function CreatePostModal({ onClose, onSaved, classes }) {
                 background: 'var(--surface)', color: 'var(--text)' }} />
           </label>
 
-          {/* 설문 전용: 질문 + 반 선택 */}
+          {/* 설문 전용: 질문 + 답변 문항 */}
           {postType === 'survey' && (
-            <>
-              <label>설문 질문
-                <input type="text" value={surveyQuestion}
-                  onChange={e => setSurveyQuestion(e.target.value)}
-                  placeholder="예: 참석 여부를 선택해주세요" />
-              </label>
-              <label>
-                대상 반 선택 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(체크박스 항목으로 추가됩니다)</span>
-                <div style={{
-                  display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6,
-                  padding: '10px', background: 'var(--surface2)',
-                  borderRadius: 6, border: '1px solid var(--border)',
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>📋 설문 질문</span>
+                <button onClick={addQuestion} style={{
+                  fontSize: 12, padding: '3px 10px', borderRadius: 5,
+                  border: '1.5px solid #f59e0b', background: 'rgba(245,158,11,0.08)',
+                  color: '#b45309', fontWeight: 700, cursor: 'pointer',
+                }}>+ 질문 추가</button>
+              </div>
+
+              {questions.map((q, qi) => (
+                <div key={qi} style={{
+                  background: 'var(--surface2)', border: '1.5px solid var(--border)',
+                  borderRadius: 8, padding: '12px 12px 10px', marginBottom: 10,
                 }}>
-                  {regularClasses.map(cls => {
-                    const checked = selectedClasses.includes(cls.className);
-                    return (
-                      <button key={cls.className} onClick={() => toggleClass(cls.className)}
-                        style={{
-                          padding: '4px 10px', borderRadius: 5, border: '1.5px solid',
-                          borderColor: checked ? 'var(--accent)' : 'var(--border)',
-                          background: checked ? 'var(--accent-light)' : 'var(--surface)',
-                          color: checked ? 'var(--accent)' : 'var(--text-muted)',
-                          fontWeight: checked ? 700 : 400,
-                          fontSize: 12, cursor: 'pointer',
-                        }}>{cls.className}</button>
-                    );
-                  })}
-                  {regularClasses.length === 0 && (
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>반 정보를 불러오는 중...</span>
-                  )}
+                  {/* 질문 헤더 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#b45309', minWidth: 28 }}>Q{qi + 1}</span>
+                    <input
+                      value={q.question}
+                      onChange={e => setQText(qi, e.target.value)}
+                      placeholder="질문을 입력하세요"
+                      style={{ flex: 1, padding: '5px 8px', border: '1.5px solid var(--border)',
+                        borderRadius: 5, fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }}
+                    />
+                    {questions.length > 1 && (
+                      <button onClick={() => removeQuestion(qi)} style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 16, color: 'var(--text-muted)', padding: '0 2px',
+                      }}>✕</button>
+                    )}
+                  </div>
+
+                  {/* 답변 문항 */}
+                  <div style={{ paddingLeft: 28 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 5 }}>답변 문항</div>
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 18 }}>
+                          {oi + 1}.
+                        </span>
+                        <input
+                          value={opt}
+                          onChange={e => setOptText(qi, oi, e.target.value)}
+                          placeholder={`답변 ${oi + 1}`}
+                          style={{ flex: 1, padding: '4px 8px', border: '1px solid var(--border)',
+                            borderRadius: 5, fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }}
+                        />
+                        {q.options.length > 2 && (
+                          <button onClick={() => removeOpt(qi, oi)} style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: 14, color: 'var(--text-muted)', padding: '0 2px',
+                          }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => addOpt(qi)} style={{
+                      marginTop: 2, fontSize: 11, padding: '3px 8px', borderRadius: 4,
+                      border: '1px dashed var(--border)', background: 'transparent',
+                      color: 'var(--text-muted)', cursor: 'pointer',
+                    }}>+ 문항 추가</button>
+                  </div>
                 </div>
-                {postType === 'survey' && selectedClasses.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3, display: 'block' }}>
-                    최소 1개 이상 선택해주세요.
-                  </span>
-                )}
-              </label>
-            </>
+              ))}
+
+              {!surveyValid && (
+                <span style={{ fontSize: 11, color: 'var(--danger)', display: 'block', marginTop: 2 }}>
+                  각 질문을 입력하고 답변 문항을 2개 이상 작성해주세요.
+                </span>
+              )}
+            </div>
           )}
 
           {/* 첨부파일 */}
@@ -176,7 +238,7 @@ function CreatePostModal({ onClose, onSaved, classes }) {
           <div style={{ flex: 1 }} />
           <button className="btn-cancel" onClick={onClose}>취소</button>
           <button className="btn-save" onClick={handleSave}
-            disabled={!title.trim() || saving || (postType === 'survey' && selectedClasses.length === 0)}>
+            disabled={!title.trim() || saving || !surveyValid}>
             {saving ? '등록 중...' : '등록'}
           </button>
         </div>
@@ -265,22 +327,49 @@ function CommentsSection({ postId, adminMode }) {
 }
 
 // ── 설문 투표 섹션 ────────────────────────────────────
+// label 포맷: "Q{qi+1}|||{질문텍스트}|||{답변텍스트}"
+// 구버전 label(파이프 없음)은 그대로 단일 그룹으로 표시
+function parseSurveyGroups(options) {
+  const grouped = {};
+  const legacy = [];
+  (options || []).forEach(opt => {
+    const parts = (opt.label || '').split('|||');
+    if (parts.length === 3) {
+      const [qKey, qText, aText] = parts;
+      if (!grouped[qKey]) grouped[qKey] = { qKey, qText, options: [] };
+      grouped[qKey].options.push({ ...opt, displayLabel: aText });
+    } else {
+      legacy.push({ ...opt, displayLabel: opt.label });
+    }
+  });
+  const groups = Object.values(grouped);
+  if (legacy.length > 0) groups.push({ qKey: 'legacy', qText: '', options: legacy });
+  return groups;
+}
+
 function SurveySection({ post, onVoted }) {
   const [voterName, setVoterName]       = useState('');
-  const [selectedOpts, setSelectedOpts] = useState([]);
+  // 질문별 선택: { [qKey]: optId[] }
+  const [selectedMap, setSelectedMap]   = useState({});
   const [submitting, setSubmitting]     = useState(false);
   const [submitted, setSubmitted]       = useState(false);
 
-  const toggleOpt = (id) =>
-    setSelectedOpts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const groups = parseSurveyGroups(post.options);
 
-  const totalVotes = post.options?.reduce((sum, o) => sum + (o.voteCount || 0), 0) || 0;
+  const toggleOpt = (qKey, id) =>
+    setSelectedMap(prev => {
+      const cur = prev[qKey] || [];
+      return { ...prev, [qKey]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] };
+    });
+
+  const allOptIds = Object.values(selectedMap).flat();
+  const allAnswered = groups.length > 0 && groups.every(g => (selectedMap[g.qKey] || []).length > 0);
 
   const handleVote = async () => {
-    if (!voterName.trim() || selectedOpts.length === 0 || submitting) return;
+    if (!voterName.trim() || !allAnswered || submitting) return;
     setSubmitting(true);
     try {
-      await submitVote(post.id, selectedOpts, voterName.trim());
+      await submitVote(post.id, allOptIds, voterName.trim());
       setSubmitted(true);
       if (onVoted) await onVoted();
     } catch(e) { console.error(e); }
@@ -289,30 +378,37 @@ function SurveySection({ post, onVoted }) {
 
   return (
     <div className="meeting-survey">
-      {post.surveyQuestion && (
-        <div className="meeting-survey-question">📊 {post.surveyQuestion}</div>
-      )}
-      <div className="meeting-survey-options">
-        {(post.options || []).map(opt => {
-          const pct = totalVotes > 0 ? Math.round((opt.voteCount || 0) / totalVotes * 100) : 0;
-          const checked = selectedOpts.includes(opt.id);
-          return (
-            <div key={opt.id}
-              className={`meeting-survey-option${checked ? ' selected' : ''}`}
-              onClick={() => !submitted && toggleOpt(opt.id)}
-            >
-              <div className="meeting-survey-bar" style={{ width: `${pct}%` }} />
-              <div className="meeting-survey-option-content">
-                <span className={`meeting-survey-checkbox${checked ? ' checked' : ''}`}>
-                  {checked ? '✓' : ''}
-                </span>
-                <span className="meeting-survey-label">{opt.label}</span>
-                <span className="meeting-survey-count">{opt.voteCount || 0}표 ({pct}%)</span>
-              </div>
+      {groups.map((g, gi) => {
+        const groupTotal = g.options.reduce((sum, o) => sum + (o.voteCount || 0), 0);
+        return (
+          <div key={g.qKey} style={{ marginBottom: gi < groups.length - 1 ? 16 : 0 }}>
+            {g.qText && (
+              <div className="meeting-survey-question">📊 {g.qText}</div>
+            )}
+            <div className="meeting-survey-options">
+              {g.options.map(opt => {
+                const pct = groupTotal > 0 ? Math.round((opt.voteCount || 0) / groupTotal * 100) : 0;
+                const checked = (selectedMap[g.qKey] || []).includes(opt.id);
+                return (
+                  <div key={opt.id}
+                    className={`meeting-survey-option${checked ? ' selected' : ''}`}
+                    onClick={() => !submitted && toggleOpt(g.qKey, opt.id)}
+                  >
+                    <div className="meeting-survey-bar" style={{ width: `${pct}%` }} />
+                    <div className="meeting-survey-option-content">
+                      <span className={`meeting-survey-checkbox${checked ? ' checked' : ''}`}>
+                        {checked ? '✓' : ''}
+                      </span>
+                      <span className="meeting-survey-label">{opt.displayLabel}</span>
+                      <span className="meeting-survey-count">{opt.voteCount || 0}표 ({pct}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
       {!submitted ? (
         <div className="meeting-survey-vote-row">
           <input value={voterName} onChange={e => setVoterName(e.target.value)}
@@ -322,7 +418,7 @@ function SurveySection({ post, onVoted }) {
               borderRadius: 5, fontSize: 13, background: 'var(--surface)', color: 'var(--text)',
             }} />
           <button onClick={handleVote}
-            disabled={!voterName.trim() || selectedOpts.length === 0 || submitting}
+            disabled={!voterName.trim() || !allAnswered || submitting}
             className="btn-save" style={{ whiteSpace: 'nowrap', padding: '6px 14px' }}>
             {submitting ? '제출 중...' : '투표'}
           </button>
@@ -419,9 +515,9 @@ export default function MeetingBoard({ adminMode }) {
     setLoading(false);
   }, []);
 
-  // 반 목록 로드 (설문 옵션용)
+  // 반 목록 로드 (더 이상 모달에 전달 안 함, 필요 시 재활성화)
   useEffect(() => {
-    fetch(`${BASE}/api/admin/classes`)
+    fetch(`${BASE}/api/classes`)
       .then(r => r.json())
       .then(data => {
         const sorted = [...data].sort((a, b) =>
@@ -517,7 +613,6 @@ export default function MeetingBoard({ adminMode }) {
         <CreatePostModal
           onClose={() => setShowCreate(false)}
           onSaved={loadPosts}
-          classes={classes}
         />
       )}
 
