@@ -583,7 +583,7 @@ function SurveySection({ post, onVoted, adminMode }) {
             alignSelf: 'center' }}>🔒 마감</span>
         )}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>
-          {voters !== null ? `${participantCount}명 참여` : `${participantCount}표`}
+          {`${participantCount}명 참여`}
         </span>
       </div>
 
