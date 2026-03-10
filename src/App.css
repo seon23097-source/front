@@ -319,7 +319,6 @@ html, body, #root {
 /* 공통 열 너비 */
 .res-list-header .res-col-name,
 .res-list-row .res-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.res-col-check { width: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .res-col-date { width: 70px; text-align: right; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 .res-col-size { width: 52px; text-align: right; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
@@ -336,7 +335,6 @@ html, body, #root {
 }
 .res-list-row:hover { background: var(--surface2); }
 .res-list-row.res-selected { background: var(--accent-light); }
-.res-list-row.res-checked { background: rgba(61,90,254,0.06); }
 .res-list-row.res-row-up { color: var(--text-muted); }
 
 .res-row-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
@@ -1938,3 +1936,285 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
   border: none !important;
 }
 .confirm-modal .btn-delete:hover { opacity: 0.85; }
+
+/* ══════════════════════════════════════════════════════
+   업무협의 (MeetingBoard)
+   ══════════════════════════════════════════════════════ */
+
+/* 전체 컨테이너 */
+.meeting-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 4px;
+}
+
+/* 헤더 */
+.meeting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 4px 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.meeting-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* 필터 탭 */
+.meeting-filter-tabs {
+  display: flex;
+  gap: 4px;
+}
+.meeting-filter-tab {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.meeting-filter-tab.active {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 게시글 목록 */
+.meeting-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.meeting-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 게시글 아이템 */
+.meeting-post-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--border);
+}
+.meeting-post-item:hover { background: var(--surface2); }
+
+.meeting-post-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.meeting-post-body {
+  flex: 1;
+  min-width: 0;
+}
+.meeting-post-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.meeting-post-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.meeting-post-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+}
+
+/* 설문 섹션 */
+.meeting-survey {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+}
+.meeting-survey-question {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.meeting-survey-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.meeting-survey-option {
+  position: relative;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface);
+  transition: border-color 0.12s;
+  min-height: 34px;
+}
+.meeting-survey-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.meeting-survey-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: rgba(61,90,254,0.08);
+  transition: width 0.4s ease;
+  pointer-events: none;
+}
+.meeting-survey-option-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  z-index: 1;
+}
+.meeting-survey-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.meeting-survey-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.meeting-survey-label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+  min-width: 0;
+}
+.meeting-survey-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.meeting-survey-vote-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* 댓글 */
+.meeting-comments { margin-top: 4px; }
+.meeting-comments-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.meeting-comment-item {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.meeting-comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.meeting-comment-author {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.meeting-comment-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.meeting-comment-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.meeting-comment-input-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+}
+.meeting-comment-author-input,
+.meeting-comment-text-input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+.meeting-comment-send-btn {
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.meeting-comment-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 상세 모달 */
+.meeting-detail-modal {
+  width: 520px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.meeting-detail-modal .modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 다크모드 */
+.dark .meeting-post-item:hover { background: var(--surface2) !important; }
+.dark .meeting-survey { background: var(--surface2) !important; }
+.dark .meeting-survey-option { background: var(--surface) !important; }
+.dark .meeting-survey-option.selected { background: var(--accent-light) !important; }
