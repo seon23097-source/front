@@ -2489,14 +2489,58 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 
 /* 데이터 셀 */
 .sci2-td-cell {
-  text-align: center;
-  min-width: 110px;
-  height: 44px;
-  transition: filter 0.1s;
-  user-select: none;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
 }
-.sci2-td-cell:hover { filter: brightness(0.93); }
-.sci2-cell-label { font-size: 12px; font-weight: 700; }
+
+/* 셀 내부 컨테이너 */
+.sci2-cell-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* 드롭박스 행 */
+.sci2-cell-selects {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.sci2-cell-selects select {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  padding: 2px 2px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.sci2-cell-selects select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 상태 버튼 */
+.sci2-status-btn {
+  width: 100%;
+  padding: 4px 0;
+  border-radius: 5px;
+  border: 1.5px solid;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.1s, background 0.15s;
+  letter-spacing: 0.02em;
+}
+.sci2-status-btn:hover { opacity: 0.82; }
 
 /* 삭제 버튼 */
 .sci2-del-btn {
@@ -2518,7 +2562,7 @@ tr.notice-row-deadline .notice-label-td { height: 72px; }
 .dark .sci2-th-schedule,
 .dark .sci2-td-row { background: var(--surface) !important; }
 .dark .sci2-left-panel { background: var(--surface) !important; }
-.dark .sci2-schedule-cell select {
+.dark .sci2-cell-selects select {
   background: var(--surface) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
