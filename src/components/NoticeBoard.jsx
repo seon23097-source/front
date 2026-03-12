@@ -203,12 +203,37 @@ export default function NoticeBoard({ adminMode, boardNotices = [], noticeItems 
       itemDate: i.date ? new Date(i.date).setHours(0, 0, 0, 0) : null,
     }));
 
-  // 게시판 공지: 생성일 기준 7일 이내만
+  // display에서 배부일 파싱: "[3월12일 배부] 제목" → Date
+  const parseDisplayDate = (display) => {
+    const m = display?.match(/\[(\d+)월(\d+)일 배부\]/);
+    if (!m) return null;
+    const d = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  // 게시판 공지 필터링
   const filteredBoardNotices = boardNotices.filter(n => {
     if (n.pinned) return true; // 고정 공지는 항상 표시
-    const created = n.createdAt ? new Date(n.createdAt) : null;
-    if (!created) return true;
-    return (today - created.setHours(0, 0, 0, 0)) / 86400000 <= 7;
+
+    // AI 요약: 생성일 기준 2일 후 숨김
+    if (n.title?.startsWith('[AI 요약]')) {
+      const created = n.createdAt ? new Date(n.createdAt) : null;
+      if (!created) return true;
+      const diff = (today - new Date(created).setHours(0, 0, 0, 0)) / 86400000;
+      return diff <= 2;
+    }
+
+    // 안내장: 배부일 기준 2일 후 숨김
+    if (n.type === 'announcement') {
+      const dispDate = parseDisplayDate(n.display);
+      if (!dispDate) return true;
+      const diff = (today - dispDate) / 86400000;
+      return diff <= 2;
+    }
+
+    // 일반 공지: 항상 표시
+    return true;
   });
 
   // 날짜 기준 정렬: 현재에 가까운 순 (미래 > 오늘 > 과거), 고정 공지 최상단
