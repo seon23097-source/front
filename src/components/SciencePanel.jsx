@@ -13,12 +13,12 @@ function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 // ── 상태 ─────────────────────────────────────────────
 const STATUS = [
   { label: '',      bg: 'transparent', color: 'transparent', border: 'var(--border)',  btnBg: 'var(--surface2)' },
-  { label: '사용중', bg: '#fef9c3',    color: '#92400e',      border: '#f59e0b',        btnBg: '#f59e0b' },
+  { label: '예약중', bg: '#fef9c3',    color: '#92400e',      border: '#f59e0b',        btnBg: '#f59e0b' },
   { label: '완료',  bg: '#dcfce7',    color: '#166534',      border: '#22c55e',        btnBg: '#22c55e' },
 ];
 const STATUS_DARK = [
   { label: '',      bg: 'transparent', color: 'transparent', border: '#374151',        btnBg: '#1f2937' },
-  { label: '사용중', bg: '#422006',    color: '#fde68a',      border: '#d97706',        btnBg: '#d97706' },
+  { label: '예약중', bg: '#422006',    color: '#fde68a',      border: '#d97706',        btnBg: '#d97706' },
   { label: '완료',  bg: '#052e16',    color: '#86efac',      border: '#16a34a',        btnBg: '#16a34a' },
 ];
 
@@ -142,7 +142,7 @@ function SciCell({ cell, usedPeriods, ST, onChange }) {
 function LeftPanel({ cols, rows, cells }) {
   const statusDot = {
     0: { color: 'var(--border)', label: '' },
-    1: { color: '#f59e0b',       label: '사용중' },
+    1: { color: '#f59e0b',       label: '예약중' },
     2: { color: '#22c55e',       label: '완료' },
   };
 
@@ -304,7 +304,7 @@ export default function SciencePanel({ adminMode }) {
             {s.label}
           </span>
         ))}
-        <span className="sci2-legend-tip">버튼 클릭: 빈칸 → 사용중 → 완료 → 빈칸</span>
+        <span className="sci2-legend-tip">버튼 클릭: 빈칸 → 예약중 → 완료 → 빈칸</span>
       </div>
 
       {/* 3:7 본문 */}
