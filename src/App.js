@@ -107,7 +107,12 @@ export default function App() {
             >
               🤝 업무협의
             </button>
-            {/* 🔬 과학준비물 — 구성 준비 중, 추후 활성화 */}
+            <button
+              className={`header-tab${activeTab === 'science' ? ' active' : ''}`}
+              onClick={() => setActiveTab('science')}
+            >
+              🔬 과학준비물
+            </button>
           </nav>
         </div>
 
@@ -177,7 +182,13 @@ export default function App() {
           </div>
         )}
 
-        {/* 과학준비물 탭 — 준비 중 */}
+        {activeTab === 'science' && (
+          <div className="science-fullscreen">
+            <SciencePanel adminMode={adminMode} />
+          </div>
+        )}
+
+        {/* 과학준비물 탭 활성화됨 */}
       </main>
 
       {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
