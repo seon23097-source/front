@@ -138,12 +138,65 @@ function SciCell({ cell, usedPeriods, ST, onChange }) {
   );
 }
 
-// ── 왼쪽 패널 ─────────────────────────────────────────
-function LeftPanel() {
+// ── 왼쪽 패널: 차시별 이용 계획 ──────────────────────
+function LeftPanel({ cols, rows, cells }) {
+  const statusDot = {
+    0: { color: 'var(--border)', label: '' },
+    1: { color: '#f59e0b',       label: '사용중' },
+    2: { color: '#22c55e',       label: '완료' },
+  };
+
+  // 단원별로 일정 있는 셀 수집 → 시일 가까운 순 정렬
+  const plans = cols.map(col => {
+    const entries = rows
+      .map(row => {
+        const c = cells[`${row.id}-${col.id}`];
+        if (!c || !c.month || !c.day || !c.period) return null;
+        return {
+          rowLabel: row.label,
+          month: c.month,
+          day: c.day,
+          period: c.period,
+          status: c.status || 0,
+          sortKey: c.month * 10000 + c.day * 100 + c.period,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.sortKey - b.sortKey);
+    return { col, entries };
+  }).filter(p => p.entries.length > 0);
+
   return (
     <div className="sci2-left-panel">
-      <div className="sci2-left-title">📋 준비물 목록</div>
-      <div className="sci2-left-empty">준비 중</div>
+      <div className="sci2-left-title">📋 차시별 이용 계획</div>
+      {plans.length === 0 ? (
+        <div className="sci2-left-empty">오른쪽 표에 월·일·교시를<br />입력하면 자동 정리됩니다.</div>
+      ) : (
+        <div className="sci2-plan-list">
+          {plans.map(({ col, entries }) => (
+            <div key={col.id} className="sci2-plan-card">
+              <div className="sci2-plan-card-title">{col.label}</div>
+              <div className="sci2-plan-rows">
+                {entries.map((e, i) => (
+                  <div key={i} className="sci2-plan-row">
+                    <span className="sci2-plan-dot"
+                      style={{ background: statusDot[e.status].color }} />
+                    <span className="sci2-plan-date">{e.month}/{e.day}</span>
+                    <span className="sci2-plan-period">{e.period}교시</span>
+                    <span className="sci2-plan-class">{e.rowLabel}</span>
+                    {e.status > 0 && (
+                      <span className="sci2-plan-status"
+                        style={{ color: statusDot[e.status].color }}>
+                        {statusDot[e.status].label}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -256,7 +309,7 @@ export default function SciencePanel({ adminMode }) {
 
       {/* 3:7 본문 */}
       <div className="sci2-body">
-        <LeftPanel />
+        <LeftPanel cols={cols} rows={rows} cells={cells} />
 
         <div className="sci2-right-panel">
           {cols.length === 0 && rows.length === 0 ? (
