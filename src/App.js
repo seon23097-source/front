@@ -113,6 +113,12 @@ export default function App() {
             >
               🔬 과학준비물
             </button>
+            <button
+              className="header-tab"
+              onClick={() => window.open('https://nas.looool.xyz', '_blank')}
+            >
+              🗄️ NAS
+            </button>
           </nav>
         </div>
 
