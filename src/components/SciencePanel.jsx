@@ -1,14 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-// ── localStorage ───────────────────────────────────────
-const KEY_COLS  = 'sci2_cols';    // [{ id, label }]
-const KEY_ROWS  = 'sci2_rows';    // [{ id, label }]
-const KEY_CELLS = 'sci2_cells';   // { "rowId-colId": { status, month, day, period } }
+const API = process.env.REACT_APP_API_URL || '';
 
-function load(key, def) {
-  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? def; } catch { return def; }
+// ── API 헬퍼 ──────────────────────────────────────────
+const sci = {
+  getAll:     ()                   => fetch(`${API}/api/science/all`).then(r => r.json()),
+  addCol:     (label)              => fetch(`${API}/api/science/cols`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ label }) }).then(r => r.json()),
+  updateCol:  (id, label)          => fetch(`${API}/api/science/cols/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ label }) }),
+  deleteCol:  (id)                 => fetch(`${API}/api/science/cols/${id}`, { method:'DELETE' }),
+  addRow:     (label)              => fetch(`${API}/api/science/rows`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ label }) }).then(r => r.json()),
+  updateRow:  (id, label)          => fetch(`${API}/api/science/rows/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ label }) }),
+  deleteRow:  (id)                 => fetch(`${API}/api/science/rows/${id}`, { method:'DELETE' }),
+  upsertCell: (rowId, colId, data) => fetch(`${API}/api/science/cells/${rowId}/${colId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
+  deleteCell: (rowId, colId)       => fetch(`${API}/api/science/cells/${rowId}/${colId}`, { method:'DELETE' }),
+};
+
+// cells 배열 → { "rowId-colId": {...} } 맵으로 변환
+function toCellMap(arr) {
+  return arr.reduce((m, c) => { m[`${c.rowId}-${c.colId}`] = c; return m; }, {});
 }
-function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 // ── 상태 ─────────────────────────────────────────────
 const STATUS = [
@@ -66,7 +76,6 @@ function EditableLabel({ value, onSave, placeholder, style = {} }) {
 }
 
 // ── 셀 컴포넌트 ───────────────────────────────────────
-// cell = { status:0|1|2, month:'', day:'', period:'' }
 function SciCell({ cell, usedPeriods, ST, onChange }) {
   const days7 = getNext7Days();
   const months = getMonthsIn7Days(days7);
@@ -77,13 +86,11 @@ function SciCell({ cell, usedPeriods, ST, onChange }) {
     ? days7.filter(d => d.month === Number(c.month)).map(d => d.day)
     : [];
 
-  const cycleStatus = () => {
-    onChange({ ...c, status: ((c.status || 0) + 1) % 3 });
-  };
+  const cycleStatus = () => onChange({ ...c, status: ((c.status || 0) + 1) % 3 });
 
   const setField = (field, val) => {
     const next = { ...c, [field]: val };
-    if (field === 'month') next.day = '';  // 월 바뀌면 일 초기화
+    if (field === 'month') next.day = '';
     onChange(next);
   };
 
@@ -94,29 +101,18 @@ function SciCell({ cell, usedPeriods, ST, onChange }) {
   };
 
   return (
-    <div className="sci2-cell-inner" style={{
-      background: s.bg,
-      borderColor: s.border,
-    }}>
-      {/* 드롭박스 행 */}
+    <div className="sci2-cell-inner" style={{ background: s.bg, borderColor: s.border }}>
       <div className="sci2-cell-selects">
-        {/* 월 */}
         <select value={c.month || ''} style={selStyle}
           onChange={e => setField('month', e.target.value ? Number(e.target.value) : '')}>
           <option value="">월</option>
-          {months.map(m => (
-            <option key={m.month} value={m.month}>{m.month}월</option>
-          ))}
+          {months.map(m => <option key={m.month} value={m.month}>{m.month}월</option>)}
         </select>
-        {/* 일 */}
         <select value={c.day || ''} style={selStyle} disabled={!c.month}
           onChange={e => setField('day', e.target.value ? Number(e.target.value) : '')}>
           <option value="">일</option>
-          {daysForMonth.map(d => (
-            <option key={d} value={d}>{d}일</option>
-          ))}
+          {daysForMonth.map(d => <option key={d} value={d}>{d}일</option>)}
         </select>
-        {/* 교시 */}
         <select value={c.period || ''} style={selStyle}
           onChange={e => setField('period', e.target.value ? Number(e.target.value) : '')}>
           <option value="">교시</option>
@@ -125,7 +121,6 @@ function SciCell({ cell, usedPeriods, ST, onChange }) {
           ))}
         </select>
       </div>
-      {/* 상태 버튼 */}
       <button className="sci2-status-btn" onClick={cycleStatus}
         style={{
           background: (c.status || 0) === 0 ? 'var(--surface2)' : s.btnBg,
@@ -146,7 +141,6 @@ function LeftPanel({ cols, rows, cells }) {
     2: { color: '#22c55e',       label: '완료' },
   };
 
-  // 단원별로 일정 있는 셀 수집 → 시일 가까운 순 정렬
   const plans = cols.map(col => {
     const entries = rows
       .map(row => {
@@ -154,9 +148,7 @@ function LeftPanel({ cols, rows, cells }) {
         if (!c || !c.month || !c.day || !c.period) return null;
         return {
           rowLabel: row.label,
-          month: c.month,
-          day: c.day,
-          period: c.period,
+          month: c.month, day: c.day, period: c.period,
           status: c.status || 0,
           sortKey: c.month * 10000 + c.day * 100 + c.period,
         };
@@ -179,14 +171,12 @@ function LeftPanel({ cols, rows, cells }) {
               <div className="sci2-plan-rows">
                 {entries.map((e, i) => (
                   <div key={i} className="sci2-plan-row">
-                    <span className="sci2-plan-dot"
-                      style={{ background: statusDot[e.status].color }} />
+                    <span className="sci2-plan-dot" style={{ background: statusDot[e.status].color }} />
                     <span className="sci2-plan-date">{e.month}/{e.day}</span>
                     <span className="sci2-plan-period">{e.period}교시</span>
                     <span className="sci2-plan-class">{e.rowLabel}</span>
                     {e.status > 0 && (
-                      <span className="sci2-plan-status"
-                        style={{ color: statusDot[e.status].color }}>
+                      <span className="sci2-plan-status" style={{ color: statusDot[e.status].color }}>
                         {statusDot[e.status].label}
                       </span>
                     )}
@@ -203,10 +193,11 @@ function LeftPanel({ cols, rows, cells }) {
 
 // ── 메인 ─────────────────────────────────────────────
 export default function SciencePanel({ adminMode }) {
-  const [cols,  setCols]  = useState(() => load(KEY_COLS,  []));
-  const [rows,  setRows]  = useState(() => load(KEY_ROWS,  []));
-  const [cells, setCells] = useState(() => load(KEY_CELLS, {}));
-  const [dark,  setDark]  = useState(() =>
+  const [cols,    setCols]    = useState([]);
+  const [rows,    setRows]    = useState([]);
+  const [cells,   setCells]   = useState({});
+  const [loading, setLoading] = useState(true);
+  const [dark,    setDark]    = useState(() =>
     document.body.classList.contains('dark') ||
     document.documentElement.classList.contains('dark'));
 
@@ -218,50 +209,60 @@ export default function SciencePanel({ adminMode }) {
     return () => obs.disconnect();
   }, []);
 
+  const fetchAll = useCallback(async () => {
+    try {
+      const data = await sci.getAll();
+      setCols(data.cols || []);
+      setRows(data.rows || []);
+      setCells(toCellMap(data.cells || []));
+    } catch (e) {
+      console.error('과학준비물 데이터 로드 실패', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
   const ST = dark ? STATUS_DARK : STATUS;
 
   // ── 열 ─────────────────────────────────────────────
-  const addCol = () => {
-    const id = Date.now();
-    const next = [...cols, { id, label: '새 단원' }];
-    setCols(next); save(KEY_COLS, next);
+  const addCol = async () => {
+    const col = await sci.addCol('새 단원');
+    setCols(prev => [...prev, col]);
   };
-  const updateCol = (id, label) => {
-    const next = cols.map(c => c.id === id ? { ...c, label } : c);
-    setCols(next); save(KEY_COLS, next);
+  const updateCol = async (id, label) => {
+    await sci.updateCol(id, label);
+    setCols(prev => prev.map(c => c.id === id ? { ...c, label } : c));
   };
-  const deleteCol = (id) => {
-    const next = cols.filter(c => c.id !== id);
-    setCols(next); save(KEY_COLS, next);
-    const nc = Object.fromEntries(Object.entries(cells).filter(([k]) => !k.endsWith(`-${id}`)));
-    setCells(nc); save(KEY_CELLS, nc);
+  const deleteCol = async (id) => {
+    await sci.deleteCol(id);
+    setCols(prev => prev.filter(c => c.id !== id));
+    setCells(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.endsWith(`-${id}`))));
   };
 
   // ── 행 ─────────────────────────────────────────────
-  const addRow = () => {
-    const id = Date.now();
-    const next = [...rows, { id, label: '새 반' }];
-    setRows(next); save(KEY_ROWS, next);
+  const addRow = async () => {
+    const row = await sci.addRow('새 반');
+    setRows(prev => [...prev, row]);
   };
-  const updateRow = (id, label) => {
-    const next = rows.map(r => r.id === id ? { ...r, label } : r);
-    setRows(next); save(KEY_ROWS, next);
+  const updateRow = async (id, label) => {
+    await sci.updateRow(id, label);
+    setRows(prev => prev.map(r => r.id === id ? { ...r, label } : r));
   };
-  const deleteRow = (id) => {
-    const next = rows.filter(r => r.id !== id);
-    setRows(next); save(KEY_ROWS, next);
-    const nc = Object.fromEntries(Object.entries(cells).filter(([k]) => !k.startsWith(`${id}-`)));
-    setCells(nc); save(KEY_CELLS, nc);
+  const deleteRow = async (id) => {
+    await sci.deleteRow(id);
+    setRows(prev => prev.filter(r => r.id !== id));
+    setCells(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`${id}-`))));
   };
 
-  // ── 셀 업데이트 ────────────────────────────────────
-  const updateCell = (rowId, colId, val) => {
+  // ── 셀 업데이트 (낙관적 업데이트) ──────────────────
+  const updateCell = async (rowId, colId, val) => {
     const key = `${rowId}-${colId}`;
-    const next = { ...cells, [key]: val };
-    setCells(next); save(KEY_CELLS, next);
+    setCells(prev => ({ ...prev, [key]: { ...prev[key], ...val, rowId, colId } }));
+    await sci.upsertCell(rowId, colId, val);
   };
 
-  // 같은 열(colId) 내에서 같은 월·일로 선택된 교시 집합
   const getUsedPeriods = (rowId, colId) => {
     const cur = cells[`${rowId}-${colId}`] || {};
     return new Set(
@@ -274,15 +275,23 @@ export default function SciencePanel({ adminMode }) {
   };
 
   // ── 초기화 ─────────────────────────────────────────
-  const resetAll = () => {
+  const resetAll = async () => {
     if (!window.confirm('모든 데이터를 초기화할까요?')) return;
+    await Promise.all([
+      ...cols.map(c => sci.deleteCol(c.id)),
+      ...rows.map(r => sci.deleteRow(r.id)),
+    ]);
     setCols([]); setRows([]); setCells({});
-    save(KEY_COLS, []); save(KEY_ROWS, []); save(KEY_CELLS, {});
   };
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-muted)' }}>
+      불러오는 중...
+    </div>
+  );
 
   return (
     <div className="sci2-panel">
-      {/* 헤더 */}
       <div className="sci2-header">
         <span className="sci2-title">🔬 과학준비물 현황</span>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -296,7 +305,6 @@ export default function SciencePanel({ adminMode }) {
         </div>
       </div>
 
-      {/* 범례 */}
       <div className="sci2-legend">
         {STATUS.slice(1).map((s, i) => (
           <span key={i} className="sci2-legend-item"
@@ -307,7 +315,6 @@ export default function SciencePanel({ adminMode }) {
         <span className="sci2-legend-tip">버튼 클릭: 빈칸 → 예약중 → 완료 → 빈칸</span>
       </div>
 
-      {/* 3:7 본문 */}
       <div className="sci2-body">
         <LeftPanel cols={cols} rows={rows} cells={cells} />
 
@@ -333,8 +340,7 @@ export default function SciencePanel({ adminMode }) {
                                 onSave={v => updateCol(col.id, v || col.label)}
                                 placeholder="단원명"
                                 style={{ fontSize: 12, fontWeight: 700 }} />
-                              <button className="sci2-del-btn"
-                                onClick={() => deleteCol(col.id)}>✕</button>
+                              <button className="sci2-del-btn" onClick={() => deleteCol(col.id)}>✕</button>
                             </>
                           ) : <span>{col.label}</span>}
                         </div>
@@ -353,8 +359,7 @@ export default function SciencePanel({ adminMode }) {
                                 onSave={v => updateRow(row.id, v || row.label)}
                                 placeholder="학반"
                                 style={{ fontSize: 12, fontWeight: 700 }} />
-                              <button className="sci2-del-btn"
-                                onClick={() => deleteRow(row.id)}>✕</button>
+                              <button className="sci2-del-btn" onClick={() => deleteRow(row.id)}>✕</button>
                             </>
                           ) : <span>{row.label}</span>}
                         </div>
