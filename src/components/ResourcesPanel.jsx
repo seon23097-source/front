@@ -73,8 +73,67 @@ function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onClose }) {
   );
 }
 
+// ── 비밀번호 잠금 화면 ───────────────────────────────────
+const RESOURCES_PW = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
+const SESSION_KEY = 'schosche_resources_unlocked';
+
+function PasswordGate({ onUnlock }) {
+  const [pw, setPw] = useState('');
+  const [error, setError] = useState(false);
+
+  const tryUnlock = () => {
+    if (pw === RESOURCES_PW) {
+      sessionStorage.setItem(SESSION_KEY, '1');
+      onUnlock();
+    } else {
+      setError(true);
+      setPw('');
+      setTimeout(() => setError(false), 1500);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '100%', gap: 16,
+    }}>
+      <div style={{ fontSize: 40 }}>🔒</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>학년자료실</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>접근하려면 비밀번호를 입력하세요.</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="password" value={pw} placeholder="비밀번호"
+          onChange={e => setPw(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && tryUnlock()}
+          autoFocus
+          style={{
+            padding: '8px 12px', borderRadius: 8, fontSize: 14,
+            border: `1.5px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
+            background: 'var(--surface)', color: 'var(--text)',
+            outline: 'none', width: 180,
+            transition: 'border-color 0.2s',
+          }}
+        />
+        <button onClick={tryUnlock} style={{
+          padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+          background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
+        }}>확인</button>
+      </div>
+      {error && <div style={{ fontSize: 12, color: 'var(--danger)' }}>비밀번호가 틀렸습니다.</div>}
+    </div>
+  );
+}
+
 // ── 메인 컴포넌트 ────────────────────────────────────────
 export default function ResourcesPanel({ adminMode }) {
+  const [unlocked, setUnlocked] = useState(
+    () => sessionStorage.getItem(SESSION_KEY) === '1'
+  );
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
+  return <ResourcesPanelInner adminMode={adminMode} />;
+}
+
+function ResourcesPanelInner({ adminMode }) {
   const [files, setFiles] = useState([]);
   const [breadcrumb, setBreadcrumb] = useState([{ id: '', name: '학년자료실' }]);
   const [currentFolderId, setCurrentFolderId] = useState('');
