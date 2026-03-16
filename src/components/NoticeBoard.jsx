@@ -183,14 +183,14 @@ export default function NoticeBoard({ adminMode, boardNotices = [], noticeItems 
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  // 시간표 안내장: 배부일 기준 7일 이내만, 날짜 정보 보존
+  // 시간표 안내장/보결: 배부일 기준 하루 지나면 숨김
   const timetableNotices = noticeItems
     .filter(i => {
-      if (i.type !== 'notice') return false;
+      if (i.type !== 'notice' && i.type !== 'substitute') return false;
       if (!i.date) return true;
       const d = new Date(i.date); d.setHours(0, 0, 0, 0);
-      const diff = (d - today) / 86400000; // 양수 = 미래, 음수 = 과거
-      return diff >= -7 && diff <= 7;
+      const diff = (today - d) / 86400000; // 양수 = 과거
+      return diff <= 1;
     })
     .map(i => ({
       id: 'tt_' + i.id,
