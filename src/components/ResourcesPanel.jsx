@@ -205,16 +205,38 @@ function ResourcesPanelInner({ adminMode }) {
     }
   };
 
-  const handleBulkDownload = () => {
+  const handleBulkDownload = async () => {
     const targets = fileItems.filter(f => checkedIds.has(f.id));
-    targets.forEach((item, i) => {
-      setTimeout(() => {
-        const a = document.createElement('a');
-        a.href = getDriveDownloadUrl(item.id);
-        a.download = item.name;
-        a.click();
-      }, i * 300); // 브라우저 팝업 차단 방지용 300ms 간격
-    });
+    if (targets.length === 0) return;
+
+    // 단일 파일이면 바로 다운로드
+    if (targets.length === 1) {
+      handleDownload(targets[0]);
+      return;
+    }
+
+    // 복수 파일은 zip 압축
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      document.head.appendChild(script);
+      await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; });
+
+      const zip = new window.JSZip();
+      await Promise.all(targets.map(async (item) => {
+        const res = await fetch(getDriveDownloadUrl(item.id));
+        const blob = await res.blob();
+        zip.file(item.name, blob);
+      }));
+      const content = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      a.download = '학년자료실.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert('zip 압축 중 오류가 발생했습니다: ' + e.message);
+    }
   };
 
   const handleContextMenu = (e, item) => {
@@ -441,10 +463,11 @@ function ResourcesPanelInner({ adminMode }) {
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
               >
-                <span className="res-col-check" onClick={e => toggleCheck(e, item.id)}>
+                <span className="res-col-check">
                   <input type="checkbox"
                     checked={checkedIds.has(item.id)}
                     onChange={e => toggleCheck(e, item.id)}
+                    onClick={e => e.stopPropagation()}
                     style={{ cursor: 'pointer' }}
                   />
                 </span>
