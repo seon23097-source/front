@@ -146,6 +146,7 @@ function LeftPanel({ cols, rows, cells }) {
       .map(row => {
         const c = cells[`${row.id}-${col.id}`];
         if (!c || !c.month || !c.day || !c.period) return null;
+        if ((c.status || 0) === 2) return null; // 완료된 항목은 제외
         return {
           rowLabel: row.label,
           month: c.month, day: c.day, period: c.period,
