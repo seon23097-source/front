@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   listDriveFiles, getDriveBreadcrumb, getDriveDownloadUrl,
+  getDriveProxyDownloadUrl,
   uploadDriveFile, createDriveFolder, renameDriveFile, deleteDriveFile,
 } from '../api/drive';
 
@@ -16,15 +17,11 @@ function FileIcon({ mimeType, isFolder, size = 32 }) {
     'application/vnd.ms-excel': '📊',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': '📑',
     'application/vnd.ms-powerpoint': '📑',
-    'application/vnd.google-apps.document': '📝',
-    'application/vnd.google-apps.spreadsheet': '📊',
-    'application/vnd.google-apps.presentation': '📑',
     'image/jpeg': '🖼️', 'image/png': '🖼️', 'image/gif': '🖼️', 'image/webp': '🖼️',
     'video/mp4': '🎬', 'video/quicktime': '🎬',
     'audio/mpeg': '🎵', 'audio/wav': '🎵',
     'application/zip': '🗜️', 'application/x-zip-compressed': '🗜️',
     'text/plain': '📃',
-    'application/hwp': '📝',
     'application/x-hwp': '📝',
   };
   const icon = ext[mimeType] || '📄';
@@ -136,27 +133,27 @@ export default function ResourcesPanel({ adminMode }) {
 function ResourcesPanelInner({ adminMode }) {
   const [files, setFiles] = useState([]);
   const [breadcrumb, setBreadcrumb] = useState([{ id: '', name: '학년자료실' }]);
-  const [currentFolderId, setCurrentFolderId] = useState('');
+  const [currentPath, setCurrentPath] = useState('/');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [checkedIds, setCheckedIds] = useState(new Set());
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, item }
+  const [contextMenu, setContextMenu] = useState(null);
   const [renameItem, setRenameItem] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); // 0~100
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
 
-  const loadFiles = useCallback(async (folderId = currentFolderId) => {
+  const loadFiles = useCallback(async (path = currentPath) => {
     setLoading(true); setError(null);
     try {
       const [fileList, crumbs] = await Promise.all([
-        listDriveFiles(folderId),
-        getDriveBreadcrumb(folderId),
+        listDriveFiles(path),
+        getDriveBreadcrumb(path),
       ]);
       setFiles(fileList);
       setBreadcrumb(crumbs);
@@ -165,26 +162,40 @@ function ResourcesPanelInner({ adminMode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentFolderId]);
+  }, [currentPath]);
 
-  useEffect(() => { loadFiles(currentFolderId); }, [currentFolderId]);
+  useEffect(() => { loadFiles(currentPath); }, [currentPath]);
 
-  const navigateTo = (folderId) => {
+  const navigateTo = (path) => {
     setSelected(null);
     setCheckedIds(new Set());
-    setCurrentFolderId(folderId);
+    setCurrentPath(path || '/');
   };
 
-  const handleItemDoubleClick = (item) => {
-    if (item.isFolder) navigateTo(item.id);
-    else window.open(getDriveDownloadUrl(item.id), '_blank');
+  const handleItemDoubleClick = async (item) => {
+    if (item.isFolder) {
+      navigateTo(item.id); // id = path
+    } else {
+      try {
+        const url = await getDriveDownloadUrl(item.id);
+        window.open(url, '_blank');
+      } catch (e) {
+        alert('다운로드 실패: ' + e.message);
+      }
+    }
   };
 
-  const handleDownload = (item) => {
-    const a = document.createElement('a');
-    a.href = getDriveDownloadUrl(item.id);
-    a.download = item.name;
-    a.click();
+  const handleDownload = async (item) => {
+    try {
+      const url = await getDriveDownloadUrl(item.id);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = item.name;
+      a.target = '_blank';
+      a.click();
+    } catch (e) {
+      alert('다운로드 실패: ' + e.message);
+    }
   };
 
   const toggleCheck = (e, itemId) => {
@@ -224,7 +235,7 @@ function ResourcesPanelInner({ adminMode }) {
 
       const zip = new window.JSZip();
       await Promise.all(targets.map(async (item) => {
-        const res = await fetch(getDriveDownloadUrl(item.id));
+        const res = await fetch(getDriveProxyDownloadUrl(item.id));
         const blob = await res.blob();
         zip.file(item.name, blob);
       }));
@@ -258,7 +269,7 @@ function ResourcesPanelInner({ adminMode }) {
     try {
       await renameDriveFile(renameItem.id, renameValue.trim());
       setRenameItem(null);
-      loadFiles(currentFolderId);
+      loadFiles(currentPath);
     } catch (e) { alert(e.message); }
   };
 
@@ -267,7 +278,7 @@ function ResourcesPanelInner({ adminMode }) {
     if (!window.confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) return;
     try {
       await deleteDriveFile(item.id);
-      loadFiles(currentFolderId);
+      loadFiles(currentPath);
     } catch (e) { alert(e.message); }
   };
 
@@ -275,9 +286,9 @@ function ResourcesPanelInner({ adminMode }) {
   const commitNewFolder = async () => {
     if (!newFolderName.trim()) { setNewFolderMode(false); return; }
     try {
-      await createDriveFolder(newFolderName.trim(), currentFolderId);
+      await createDriveFolder(newFolderName.trim(), currentPath);
       setNewFolderMode(false); setNewFolderName('');
-      loadFiles(currentFolderId);
+      loadFiles(currentPath);
     } catch (e) { alert(e.message); }
   };
 
@@ -289,13 +300,12 @@ function ResourcesPanelInner({ adminMode }) {
     try {
       const files = Array.from(fileList);
       for (let i = 0; i < files.length; i++) {
-        await uploadDriveFile(files[i], currentFolderId, (percent) => {
-          // 여러 파일일 경우 전체 진행률 계산
+        await uploadDriveFile(files[i], currentPath, (percent) => {
           const overall = Math.round(((i + percent / 100) / files.length) * 100);
           setUploadProgress(overall);
         });
       }
-      loadFiles(currentFolderId);
+      loadFiles(currentPath);
     } catch (e) { alert(e.message); }
     finally { setUploading(false); setUploadProgress(0); }
   };
@@ -335,7 +345,7 @@ function ResourcesPanelInner({ adminMode }) {
           <button className="res-btn" onClick={() => { setNewFolderMode(true); setNewFolderName('새 폴더'); }}>
             📂 새 폴더
           </button>
-          <button className="res-btn res-btn-refresh" onClick={() => loadFiles(currentFolderId)} title="새로고침">
+          <button className="res-btn res-btn-refresh" onClick={() => loadFiles(currentPath)} title="새로고침">
             🔄
           </button>
           <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
@@ -431,7 +441,7 @@ function ResourcesPanelInner({ adminMode }) {
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
               >
-                <span className="res-col-check" /> {/* 폴더는 체크박스 없음 */}
+                <span className="res-col-check" />
                 <span className="res-row-icon">📁</span>
                 {renameItem?.id === item.id ? (
                   <input

@@ -115,7 +115,7 @@ export default function App() {
             </button>
             <button
               className="header-tab"
-              onClick={() => window.open('https://nas.looool.xyz/apps/files', '_blank')}
+              onClick={() => window.open('https://nas2.looool.xyz', '_blank')}
             >
               🗄️ NAS
             </button>
