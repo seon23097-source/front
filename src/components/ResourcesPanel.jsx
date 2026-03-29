@@ -3,12 +3,12 @@ import {
   listDriveFiles, getDriveBreadcrumb, getDriveDownloadUrl,
   getDriveProxyDownloadUrl,
   uploadDriveFile, createDriveFolder, renameDriveFile, deleteDriveFile,
+  moveDriveFile,
 } from '../api/drive';
 
 // ── 파일 아이콘 ──────────────────────────────────────────
 function FileIcon({ mimeType, isFolder, size = 32 }) {
   if (isFolder) return <span className="res-icon res-icon-folder" style={{ fontSize: size }}>📁</span>;
-
   const ext = {
     'application/pdf': '📄',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
@@ -24,11 +24,9 @@ function FileIcon({ mimeType, isFolder, size = 32 }) {
     'text/plain': '📃',
     'application/x-hwp': '📝',
   };
-  const icon = ext[mimeType] || '📄';
-  return <span className="res-icon" style={{ fontSize: size }}>{icon}</span>;
+  return <span className="res-icon" style={{ fontSize: size }}>{ext[mimeType] || '📄'}</span>;
 }
 
-// ── 파일 크기 포맷 ───────────────────────────────────────
 function formatSize(bytes) {
   if (!bytes) return '-';
   if (bytes < 1024) return `${bytes} B`;
@@ -37,7 +35,6 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-// ── 날짜 포맷 ────────────────────────────────────────────
 function formatDate(iso) {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -45,7 +42,7 @@ function formatDate(iso) {
 }
 
 // ── 컨텍스트 메뉴 ────────────────────────────────────────
-function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onClose }) {
+function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onCut, onClose }) {
   useEffect(() => {
     const handler = () => onClose();
     window.addEventListener('click', handler);
@@ -55,77 +52,47 @@ function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onClose }) {
   return (
     <div className="res-context-menu" style={{ top: y, left: x }} onClick={e => e.stopPropagation()}>
       {!item.isFolder && (
-        <button onClick={() => { onDownload(item); onClose(); }}>
-          ⬇️ 다운로드
-        </button>
+        <button onClick={() => { onDownload(item); onClose(); }}>⬇️ 다운로드</button>
       )}
-      <button onClick={() => { onRename(item); onClose(); }}>
-        ✏️ 이름 변경
-      </button>
+      <button onClick={() => { onCut(item); onClose(); }}>✂️ 잘라내기</button>
+      <button onClick={() => { onRename(item); onClose(); }}>✏️ 이름 변경</button>
       <div className="res-ctx-divider" />
-      <button className="res-ctx-danger" onClick={() => { onDelete(item); onClose(); }}>
-        🗑️ 삭제
-      </button>
+      <button className="res-ctx-danger" onClick={() => { onDelete(item); onClose(); }}>🗑️ 삭제</button>
     </div>
   );
 }
 
-// ── 비밀번호 잠금 화면 ───────────────────────────────────
+// ── 비밀번호 잠금 ────────────────────────────────────────
 const RESOURCES_PW = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
 const SESSION_KEY = 'schosche_resources_unlocked';
 
 function PasswordGate({ onUnlock }) {
   const [pw, setPw] = useState('');
   const [error, setError] = useState(false);
-
   const tryUnlock = () => {
-    if (pw === RESOURCES_PW) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      onUnlock();
-    } else {
-      setError(true);
-      setPw('');
-      setTimeout(() => setError(false), 1500);
-    }
+    if (pw === RESOURCES_PW) { sessionStorage.setItem(SESSION_KEY, '1'); onUnlock(); }
+    else { setError(true); setPw(''); setTimeout(() => setError(false), 1500); }
   };
-
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', height: '100%', gap: 16,
-    }}>
-      <div style={{ fontSize: 40 }}>🔒</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>학년자료실</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>접근하려면 비밀번호를 입력하세요.</div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="password" value={pw} placeholder="비밀번호"
-          onChange={e => setPw(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && tryUnlock()}
-          autoFocus
-          style={{
-            padding: '8px 12px', borderRadius: 8, fontSize: 14,
-            border: `1.5px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
-            background: 'var(--surface)', color: 'var(--text)',
-            outline: 'none', width: 180,
-            transition: 'border-color 0.2s',
-          }}
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:16 }}>
+      <div style={{ fontSize:40 }}>🔒</div>
+      <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>학년자료실</div>
+      <div style={{ fontSize:13, color:'var(--text-muted)' }}>접근하려면 비밀번호를 입력하세요.</div>
+      <div style={{ display:'flex', gap:8 }}>
+        <input type="password" value={pw} placeholder="비밀번호"
+          onChange={e => setPw(e.target.value)} onKeyDown={e => e.key==='Enter' && tryUnlock()} autoFocus
+          style={{ padding:'8px 12px', borderRadius:8, fontSize:14, border:`1.5px solid ${error?'var(--danger)':'var(--border)'}`, background:'var(--surface)', color:'var(--text)', outline:'none', width:180 }}
         />
-        <button onClick={tryUnlock} style={{
-          padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-          background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
-        }}>확인</button>
+        <button onClick={tryUnlock} style={{ padding:'8px 16px', borderRadius:8, fontSize:13, fontWeight:700, background:'var(--accent)', color:'#fff', border:'none', cursor:'pointer' }}>확인</button>
       </div>
-      {error && <div style={{ fontSize: 12, color: 'var(--danger)' }}>비밀번호가 틀렸습니다.</div>}
+      {error && <div style={{ fontSize:12, color:'var(--danger)' }}>비밀번호가 틀렸습니다.</div>}
     </div>
   );
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────
 export default function ResourcesPanel({ adminMode }) {
-  const [unlocked, setUnlocked] = useState(
-    () => sessionStorage.getItem(SESSION_KEY) === '1'
-  );
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
   return <ResourcesPanelInner adminMode={adminMode} />;
 }
@@ -146,6 +113,7 @@ function ResourcesPanelInner({ adminMode }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [clipboard, setClipboard] = useState(null); // { item, srcDir } — 잘라내기 버퍼
   const fileInputRef = useRef(null);
 
   const loadFiles = useCallback(async (path = currentPath) => {
@@ -157,11 +125,8 @@ function ResourcesPanelInner({ adminMode }) {
       ]);
       setFiles(fileList);
       setBreadcrumb(crumbs);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
   }, [currentPath]);
 
   useEffect(() => { loadFiles(currentPath); }, [currentPath]);
@@ -173,116 +138,89 @@ function ResourcesPanelInner({ adminMode }) {
   };
 
   const handleItemDoubleClick = async (item) => {
-    if (item.isFolder) {
-      navigateTo(item.id); // id = path
-    } else {
-      try {
-        const url = await getDriveDownloadUrl(item.id);
-        window.open(url, '_blank');
-      } catch (e) {
-        alert('다운로드 실패: ' + e.message);
-      }
-    }
+    if (item.isFolder) { navigateTo(item.id); return; }
+    try {
+      const url = await getDriveDownloadUrl(item.id);
+      window.open(url, '_blank');
+    } catch (e) { alert('다운로드 실패: ' + e.message); }
   };
 
   const handleDownload = async (item) => {
     try {
       const url = await getDriveDownloadUrl(item.id);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = item.name;
-      a.target = '_blank';
-      a.click();
-    } catch (e) {
-      alert('다운로드 실패: ' + e.message);
-    }
+      Object.assign(document.createElement('a'), { href: url, download: item.name, target: '_blank' }).click();
+    } catch (e) { alert('다운로드 실패: ' + e.message); }
   };
 
   const toggleCheck = (e, itemId) => {
     e.stopPropagation();
-    setCheckedIds(prev => {
-      const next = new Set(prev);
-      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-      return next;
-    });
+    setCheckedIds(prev => { const n = new Set(prev); n.has(itemId) ? n.delete(itemId) : n.add(itemId); return n; });
   };
 
   const toggleCheckAll = () => {
-    const allFileIds = fileItems.map(f => f.id);
-    if (allFileIds.every(id => checkedIds.has(id))) {
-      setCheckedIds(new Set());
-    } else {
-      setCheckedIds(new Set(allFileIds));
-    }
+    const allIds = fileItems.map(f => f.id);
+    setCheckedIds(allIds.every(id => checkedIds.has(id)) ? new Set() : new Set(allIds));
   };
 
   const handleBulkDownload = async () => {
     const targets = fileItems.filter(f => checkedIds.has(f.id));
-    if (targets.length === 0) return;
-
-    // 단일 파일이면 바로 다운로드
-    if (targets.length === 1) {
-      handleDownload(targets[0]);
-      return;
-    }
-
-    // 복수 파일은 zip 압축
+    if (!targets.length) return;
+    if (targets.length === 1) { handleDownload(targets[0]); return; }
     try {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
       document.head.appendChild(script);
-      await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; });
-
+      await new Promise((ok, fail) => { script.onload = ok; script.onerror = fail; });
       const zip = new window.JSZip();
       await Promise.all(targets.map(async (item) => {
         const res = await fetch(getDriveProxyDownloadUrl(item.id));
-        const blob = await res.blob();
-        zip.file(item.name, blob);
+        zip.file(item.name, await res.blob());
       }));
-      const content = await zip.generateAsync({ type: 'blob' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(content);
-      a.download = '학년자료실.zip';
-      a.click();
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '학년자료실.zip'; a.click();
       URL.revokeObjectURL(a.href);
-    } catch (e) {
-      alert('zip 압축 중 오류가 발생했습니다: ' + e.message);
-    }
+    } catch (e) { alert('zip 압축 오류: ' + e.message); }
   };
 
   const handleContextMenu = (e, item) => {
-    e.preventDefault();
-    setSelected(item.id);
+    e.preventDefault(); setSelected(item.id);
     setContextMenu({ x: e.clientX, y: e.clientY, item });
   };
 
-  // 이름 변경
-  const startRename = (item) => {
-    setRenameItem(item);
-    setRenameValue(item.name);
-  };
-
+  // ── 이름 변경 ──────────────────────────────────────────
+  const startRename = (item) => { setRenameItem(item); setRenameValue(item.name); };
   const commitRename = async () => {
-    if (!renameValue.trim() || renameValue === renameItem.name) {
-      setRenameItem(null); return;
-    }
+    if (!renameValue.trim() || renameValue === renameItem.name) { setRenameItem(null); return; }
     try {
-      await renameDriveFile(renameItem.id, renameValue.trim());
-      setRenameItem(null);
-      loadFiles(currentPath);
+      await renameDriveFile(renameItem.id, renameValue.trim(), renameItem.isFolder);
+      setRenameItem(null); loadFiles(currentPath);
     } catch (e) { alert(e.message); }
   };
 
-  // 삭제
+  // ── 삭제 ──────────────────────────────────────────────
   const handleDelete = async (item) => {
     if (!window.confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) return;
-    try {
-      await deleteDriveFile(item.id);
-      loadFiles(currentPath);
-    } catch (e) { alert(e.message); }
+    try { await deleteDriveFile(item.id, item.isFolder); loadFiles(currentPath); }
+    catch (e) { alert(e.message); }
   };
 
-  // 폴더 생성
+  // ── 잘라내기 / 붙여넣기 ────────────────────────────────
+  const handleCut = (item) => {
+    setClipboard({ item, srcDir: currentPath });
+  };
+
+  const handlePaste = async () => {
+    if (!clipboard) return;
+    const { item, srcDir } = clipboard;
+    if (srcDir === currentPath) { setClipboard(null); return; } // 같은 폴더면 무시
+    try {
+      await moveDriveFile(item.id, currentPath, item.isFolder);
+      setClipboard(null);
+      loadFiles(currentPath);
+    } catch (e) { alert('이동 실패: ' + e.message); }
+  };
+
+  // ── 폴더 생성 ─────────────────────────────────────────
   const commitNewFolder = async () => {
     if (!newFolderName.trim()) { setNewFolderMode(false); return; }
     try {
@@ -292,17 +230,15 @@ function ResourcesPanelInner({ adminMode }) {
     } catch (e) { alert(e.message); }
   };
 
-  // 파일 업로드
+  // ── 업로드 (NAS2 직접 + chunked) ──────────────────────
   const handleUpload = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
-    setUploading(true);
-    setUploadProgress(0);
+    setUploading(true); setUploadProgress(0);
     try {
-      const files = Array.from(fileList);
-      for (let i = 0; i < files.length; i++) {
-        await uploadDriveFile(files[i], currentPath, (percent) => {
-          const overall = Math.round(((i + percent / 100) / files.length) * 100);
-          setUploadProgress(overall);
+      const arr = Array.from(fileList);
+      for (let i = 0; i < arr.length; i++) {
+        await uploadDriveFile(arr[i], currentPath, (pct) => {
+          setUploadProgress(Math.round(((i + pct / 100) / arr.length) * 100));
         });
       }
       loadFiles(currentPath);
@@ -310,13 +246,10 @@ function ResourcesPanelInner({ adminMode }) {
     finally { setUploading(false); setUploadProgress(0); }
   };
 
-  // 드래그앤드롭
+  // ── 드래그앤드롭 ──────────────────────────────────────
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const handleDrop = (e) => {
-    e.preventDefault(); setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
-  };
+  const handleDrop = (e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files); };
 
   const folders = files.filter(f => f.isFolder);
   const fileItems = files.filter(f => !f.isFolder);
@@ -330,12 +263,13 @@ function ResourcesPanelInner({ adminMode }) {
           <span className="resources-title">학년자료실</span>
         </div>
         <div className="resources-header-actions">
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-            200MB 이하
-          </span>
+          {clipboard && (
+            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }} onClick={handlePaste} title={`"${clipboard.item.name}" 여기에 붙여넣기`}>
+              📋 붙여넣기
+            </button>
+          )}
           {checkedIds.size > 0 && (
-            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }}
-              onClick={handleBulkDownload}>
+            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }} onClick={handleBulkDownload}>
               ⬇️ {checkedIds.size}개 다운로드
             </button>
           )}
@@ -345,13 +279,20 @@ function ResourcesPanelInner({ adminMode }) {
           <button className="res-btn" onClick={() => { setNewFolderMode(true); setNewFolderName('새 폴더'); }}>
             📂 새 폴더
           </button>
-          <button className="res-btn res-btn-refresh" onClick={() => loadFiles(currentPath)} title="새로고침">
-            🔄
-          </button>
+          <button className="res-btn res-btn-refresh" onClick={() => loadFiles(currentPath)} title="새로고침">🔄</button>
           <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
             onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
         </div>
       </div>
+
+      {/* 클립보드 알림 */}
+      {clipboard && (
+        <div style={{ padding: '6px 14px', fontSize: 12, background: 'var(--accent-light, #e8f0fe)', color: 'var(--text)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>✂️ <b>{clipboard.item.name}</b> 잘라냄</span>
+          <span style={{ color: 'var(--text-muted)' }}>— 이동할 폴더에서 붙여넣기</span>
+          <button onClick={() => setClipboard(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>✕ 취소</button>
+        </div>
+      )}
 
       {/* 브레드크럼 */}
       <div className="res-breadcrumb">
@@ -372,9 +313,7 @@ function ResourcesPanelInner({ adminMode }) {
       {/* 파일 목록 */}
       <div
         className={`resources-body${isDragging ? ' res-drag-over' : ''}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
       >
         {loading ? (
           <div className="res-state-msg">불러오는 중...</div>
@@ -392,9 +331,7 @@ function ResourcesPanelInner({ adminMode }) {
               <span className="res-col-check">
                 <input type="checkbox"
                   checked={fileItems.length > 0 && fileItems.every(f => checkedIds.has(f.id))}
-                  onChange={toggleCheckAll}
-                  title="전체 선택"
-                  style={{ cursor: 'pointer' }}
+                  onChange={toggleCheckAll} title="전체 선택" style={{ cursor: 'pointer' }}
                 />
               </span>
               <span className="res-col-name">이름</span>
@@ -402,7 +339,7 @@ function ResourcesPanelInner({ adminMode }) {
               <span className="res-col-size">크기</span>
             </div>
 
-            {/* 상위 폴더로 */}
+            {/* 상위 폴더 */}
             {breadcrumb.length > 1 && (
               <div className="res-list-row res-row-up" onDoubleClick={() => navigateTo(breadcrumb[breadcrumb.length - 2].id)}>
                 <span className="res-row-icon">⬆️</span>
@@ -412,31 +349,23 @@ function ResourcesPanelInner({ adminMode }) {
               </div>
             )}
 
-            {/* 새 폴더 입력 행 */}
+            {/* 새 폴더 입력 */}
             {newFolderMode && (
               <div className="res-list-row res-row-new">
                 <span className="res-row-icon">📁</span>
-                <input
-                  className="res-inline-input"
-                  autoFocus
-                  value={newFolderName}
+                <input className="res-inline-input" autoFocus value={newFolderName}
                   onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') commitNewFolder();
-                    if (e.key === 'Escape') { setNewFolderMode(false); }
-                  }}
+                  onKeyDown={e => { if (e.key==='Enter') commitNewFolder(); if (e.key==='Escape') setNewFolderMode(false); }}
                   onBlur={commitNewFolder}
                 />
-                <span className="res-col-date" />
-                <span className="res-col-size" />
+                <span className="res-col-date" /><span className="res-col-size" />
               </div>
             )}
 
-            {/* 폴더 목록 */}
+            {/* 폴더 */}
             {folders.map(item => (
-              <div
-                key={item.id}
-                className={`res-list-row${selected === item.id ? ' res-selected' : ''}`}
+              <div key={item.id}
+                className={`res-list-row${selected===item.id?' res-selected':''}${clipboard?.item.id===item.id?' res-cut':''}`}
                 onClick={() => setSelected(item.id)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
@@ -444,17 +373,10 @@ function ResourcesPanelInner({ adminMode }) {
                 <span className="res-col-check" />
                 <span className="res-row-icon">📁</span>
                 {renameItem?.id === item.id ? (
-                  <input
-                    className="res-inline-input"
-                    autoFocus
-                    value={renameValue}
+                  <input className="res-inline-input" autoFocus value={renameValue}
                     onChange={e => setRenameValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') commitRename();
-                      if (e.key === 'Escape') setRenameItem(null);
-                    }}
-                    onBlur={commitRename}
-                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => { if (e.key==='Enter') commitRename(); if (e.key==='Escape') setRenameItem(null); }}
+                    onBlur={commitRename} onClick={e => e.stopPropagation()}
                   />
                 ) : (
                   <span className="res-row-name">{item.name}</span>
@@ -464,38 +386,25 @@ function ResourcesPanelInner({ adminMode }) {
               </div>
             ))}
 
-            {/* 파일 목록 */}
+            {/* 파일 */}
             {fileItems.map(item => (
-              <div
-                key={item.id}
-                className={`res-list-row${selected === item.id ? ' res-selected' : ''}${checkedIds.has(item.id) ? ' res-checked' : ''}`}
+              <div key={item.id}
+                className={`res-list-row${selected===item.id?' res-selected':''}${checkedIds.has(item.id)?' res-checked':''}${clipboard?.item.id===item.id?' res-cut':''}`}
                 onClick={() => setSelected(item.id)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
               >
                 <span className="res-col-check">
-                  <input type="checkbox"
-                    checked={checkedIds.has(item.id)}
-                    onChange={e => toggleCheck(e, item.id)}
-                    onClick={e => e.stopPropagation()}
-                    style={{ cursor: 'pointer' }}
+                  <input type="checkbox" checked={checkedIds.has(item.id)}
+                    onChange={e => toggleCheck(e, item.id)} onClick={e => e.stopPropagation()} style={{ cursor:'pointer' }}
                   />
                 </span>
-                <span className="res-row-icon">
-                  <FileIcon mimeType={item.mimeType} isFolder={false} size={18} />
-                </span>
+                <span className="res-row-icon"><FileIcon mimeType={item.mimeType} isFolder={false} size={18} /></span>
                 {renameItem?.id === item.id ? (
-                  <input
-                    className="res-inline-input"
-                    autoFocus
-                    value={renameValue}
+                  <input className="res-inline-input" autoFocus value={renameValue}
                     onChange={e => setRenameValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') commitRename();
-                      if (e.key === 'Escape') setRenameItem(null);
-                    }}
-                    onBlur={commitRename}
-                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => { if (e.key==='Enter') commitRename(); if (e.key==='Escape') setRenameItem(null); }}
+                    onBlur={commitRename} onClick={e => e.stopPropagation()}
                   />
                 ) : (
                   <span className="res-row-name">{item.name}</span>
@@ -507,20 +416,13 @@ function ResourcesPanelInner({ adminMode }) {
           </>
         )}
 
-        {/* 드래그 오버레이 */}
-        {isDragging && (
-          <div className="res-drag-overlay">
-            <div>⬆️ 파일을 놓아 업로드</div>
-          </div>
-        )}
-
-        {/* 업로드 중 오버레이 */}
+        {isDragging && <div className="res-drag-overlay"><div>⬆️ 파일을 놓아 업로드</div></div>}
         {uploading && (
           <div className="res-drag-overlay">
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ marginBottom: 10 }}>⏳ 업로드 중... {uploadProgress}%</div>
-              <div style={{ width: 220, height: 8, background: 'rgba(255,255,255,0.3)', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#4caf50', borderRadius: 4, transition: 'width 0.2s' }} />
+            <div style={{ textAlign:'center' }}>
+              <div style={{ marginBottom:10 }}>⏳ 업로드 중... {uploadProgress}%</div>
+              <div style={{ width:220, height:8, background:'rgba(255,255,255,0.3)', borderRadius:4, overflow:'hidden' }}>
+                <div style={{ width:`${uploadProgress}%`, height:'100%', background:'#4caf50', borderRadius:4, transition:'width 0.2s' }} />
               </div>
             </div>
           </div>
@@ -531,10 +433,8 @@ function ResourcesPanelInner({ adminMode }) {
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x} y={contextMenu.y} item={contextMenu.item}
-          onDownload={handleDownload}
-          onRename={startRename}
-          onDelete={handleDelete}
-          onClose={() => setContextMenu(null)}
+          onDownload={handleDownload} onRename={startRename} onDelete={handleDelete}
+          onCut={handleCut} onClose={() => setContextMenu(null)}
         />
       )}
     </div>
