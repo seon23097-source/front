@@ -43,7 +43,7 @@ const getUploadLink = async (path = '/') => {
  * Cloudflare 100MB 제한 우회를 위해 50MB 단위로 분할
  */
 export const uploadDriveFile = async (file, path = '/', onProgress) => {
-  const { upload_url, token } = await getUploadLink(path);
+  const { upload_url, token, parent_dir } = await getUploadLink(path);
 
   if (file.size <= CHUNK_SIZE) {
     // ── 단일 업로드 ─────────────────────────────────────
@@ -65,7 +65,8 @@ export const uploadDriveFile = async (file, path = '/', onProgress) => {
       xhr.timeout = 5 * 60 * 1000;
 
       const fd = new FormData();
-      fd.append('parent_dir', '/');  // rootPath 기준 (서버에서 fullPath 처리됨)
+        // rootPath 기준 (서버에서 fullPath 처리됨)
+      fd.append('parent_dir', parent_dir);
       fd.append('file', file);
       xhr.send(fd);
     });
@@ -109,7 +110,7 @@ export const uploadDriveFile = async (file, path = '/', onProgress) => {
       xhr.addEventListener('error', () => reject(new Error('네트워크 오류')));
 
       const fd = new FormData();
-      fd.append('parent_dir', '/');
+      fd.append('parent_dir', parent_dir);
       fd.append('file', file.slice(start, end), file.name);
       xhr.send(fd);
     });
