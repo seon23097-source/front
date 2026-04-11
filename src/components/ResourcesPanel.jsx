@@ -269,7 +269,7 @@ function ResourcesPanelInner({ adminMode }) {
         </div>
         <div className="resources-header-actions">
           {clipboard && (
-            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }} onClick={handlePaste} title={`"${clipboard.item.name}" 여기에 붙여넣기`}>
+            <button className="res-btn" style={{ color: 'var(--accent)', fontWeight: 700 }} onClick={handlePaste} title={`${clipboard.items.length === 1 ? `"${clipboard.items[0].name}"` : `${clipboard.items.length}개 항목`} 여기에 붙여넣기`}>
               📋 붙여넣기
             </button>
           )}
@@ -293,7 +293,7 @@ function ResourcesPanelInner({ adminMode }) {
       {/* 클립보드 알림 */}
       {clipboard && (
         <div style={{ padding: '6px 14px', fontSize: 12, background: 'var(--accent-light, #e8f0fe)', color: 'var(--text)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>✂️ <b>{clipboard.item.name}</b> 잘라냄</span>
+          <span>✂️ <b>{clipboard.items.length === 1 ? clipboard.items[0].name : `${clipboard.items.length}개 항목`}</b> 잘라냄</span>
           <span style={{ color: 'var(--text-muted)' }}>— 이동할 폴더에서 붙여넣기</span>
           <button onClick={() => setClipboard(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>✕ 취소</button>
         </div>
