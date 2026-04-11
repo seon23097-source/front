@@ -113,7 +113,7 @@ function ResourcesPanelInner({ adminMode }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [clipboard, setClipboard] = useState(null); // { item, srcDir } — 잘라내기 버퍼
+  const [clipboard, setClipboard] = useState(null); // { items: [], srcDir }
   const fileInputRef = useRef(null);
 
   const loadFiles = useCallback(async (path = currentPath) => {
@@ -206,19 +206,24 @@ function ResourcesPanelInner({ adminMode }) {
 
   // ── 잘라내기 / 붙여넣기 ────────────────────────────────
   const handleCut = (item) => {
-    setClipboard({ item, srcDir: currentPath });
+    // 체크된 항목이 있으면 체크된 것들 전부, 없으면 우클릭한 item 하나
+    const targets = checkedIds.size > 0
+      ? files.filter(f => checkedIds.has(f.id))
+      : [item];
+    setClipboard({ items: targets, srcDir: currentPath });
   };
-
   const handlePaste = async () => {
     if (!clipboard) return;
-    const { item, srcDir } = clipboard;
-    if (srcDir === currentPath) { setClipboard(null); return; } // 같은 폴더면 무시
+    const { items, srcDir } = clipboard;
+    if (srcDir === currentPath) { setClipboard(null); return; }
     try {
-      await moveDriveFile(item.id, currentPath, item.isFolder);
+      await Promise.all(items.map(item => moveDriveFile(item.id, currentPath, item.isFolder)));
       setClipboard(null);
+      setCheckedIds(new Set());
       loadFiles(currentPath);
     } catch (e) { alert('이동 실패: ' + e.message); }
   };
+
 
   // ── 폴더 생성 ─────────────────────────────────────────
   const commitNewFolder = async () => {
@@ -365,7 +370,7 @@ function ResourcesPanelInner({ adminMode }) {
             {/* 폴더 */}
             {folders.map(item => (
               <div key={item.id}
-                className={`res-list-row${selected===item.id?' res-selected':''}${clipboard?.item.id===item.id?' res-cut':''}`}
+                className={`res-list-row${selected===item.id?' res-selected':''}${clipboard?.items.some(c => c.id===item.id)?' res-cut':''}`}
                 onClick={() => setSelected(item.id)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
@@ -389,7 +394,7 @@ function ResourcesPanelInner({ adminMode }) {
             {/* 파일 */}
             {fileItems.map(item => (
               <div key={item.id}
-                className={`res-list-row${selected===item.id?' res-selected':''}${checkedIds.has(item.id)?' res-checked':''}${clipboard?.item.id===item.id?' res-cut':''}`}
+                className={`res-list-row${selected===item.id?' res-selected':''}${checkedIds.has(item.id)?' res-checked':''}${clipboard?.items.some(c => c.id===item.id)?' res-cut':''}`}
                 onClick={() => setSelected(item.id)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
                 onContextMenu={e => handleContextMenu(e, item)}
