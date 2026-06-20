@@ -74,7 +74,7 @@ function PasswordGate({ onUnlock }) {
     else { setError(true); setPw(''); setTimeout(() => setError(false), 1500); }
   };
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:16 }}>
+    <div className="resources-panel" style={{ alignItems:'center', justifyContent:'center', gap:16 }}>
       <div style={{ fontSize:40 }}>🔒</div>
       <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>학년자료실</div>
       <div style={{ fontSize:13, color:'var(--text-muted)' }}>접근하려면 비밀번호를 입력하세요.</div>
