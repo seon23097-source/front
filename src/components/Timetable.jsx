@@ -27,14 +27,14 @@ export function _setItemsCache(items, silent = false) {
   if (!silent) window.dispatchEvent(new Event('timetableItemsChanged'));
 }
 
-export function toLocalDateStr(d) {
+function toLocalDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-export function getThisMonday() {
+function getThisMonday() {
   const today = new Date();
   const dow = today.getDay();
   const diff = dow === 0 ? 1 : dow === 6 ? 2 : 1 - dow;
@@ -44,7 +44,7 @@ export function getThisMonday() {
   return monday;
 }
 
-export function getWeekDates(mondayBase) {
+function getWeekDates(mondayBase) {
   return Array.from({ length: 5 }, (_, i) => {
     const d = new Date(mondayBase);
     d.setDate(mondayBase.getDate() + i);
