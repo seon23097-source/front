@@ -23,6 +23,10 @@ export default function App() {
       return next;
     });
   };
+  // 다크 클래스를 document root에도 적용 → 패널 바깥 여백(body 배경)까지 어둡게
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
