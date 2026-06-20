@@ -63,7 +63,7 @@ function ContextMenu({ x, y, item, onDownload, onRename, onDelete, onCut, onClos
 }
 
 // ── 비밀번호 잠금 ────────────────────────────────────────
-const RESOURCES_PW = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
+const RESOURCES_PW = process.env.REACT_APP_ADMIN_PASSWORD;
 const SESSION_KEY = 'schosche_resources_unlocked';
 
 function PasswordGate({ onUnlock }) {
