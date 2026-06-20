@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
 const NAME_KEY = 'schosche_chat_name';
-const WS_URL = (process.env.REACT_APP_API_URL || '').replace(/^http/, 'ws') || '';
 
 function formatTime(ts) {
   const d = new Date(ts);
