@@ -27,11 +27,6 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPw, setAdminPw] = useState('');
   const [pwError, setPwError] = useState(false);
-  // 구글 문서 탭 잠금
-  const [gdocsUnlocked, setGdocsUnlocked] = useState(false);
-  const [showGdocsPrompt, setShowGdocsPrompt] = useState(false);
-  const [gdocsPw, setGdocsPw] = useState('');
-  const [gdocsPwError, setGdocsPwError] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -94,12 +89,6 @@ export default function App() {
               onClick={() => setActiveTab('timetable')}
             >
               📋 통합시간표
-            </button>
-            <button
-              className={`header-tab${activeTab === 'googledoc' ? ' active' : ''}`}
-              onClick={() => gdocsUnlocked ? setActiveTab('googledoc') : setShowGdocsPrompt(true)}
-            >
-              📊 학교 구글 문서{!gdocsUnlocked && ' 🔒'}
             </button>
             <button
               className={`header-tab${activeTab === 'meeting' ? ' active' : ''}`}
@@ -165,17 +154,6 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'googledoc' && (
-          <div className="embed-fullscreen">
-            <iframe
-              src="https://docs.google.com/spreadsheets/d/1u6pdr7t3E7CbrmEVqUmessggHKYQjg6cB6i2W2yi85k/edit?gid=810467711#gid=810467711&rm=minimal"
-              title="학교 구글 문서"
-              className="embed-iframe"
-              allow="clipboard-read; clipboard-write"
-            />
-          </div>
-        )}
-
         {activeTab === 'meeting' && (
           <div className="meeting-fullscreen">
             <MeetingBoard adminMode={adminMode} />
@@ -218,58 +196,6 @@ export default function App() {
               <div style={{ flex: 1 }} />
               <button className="btn-cancel" onClick={() => setShowAdminPrompt(false)}>취소</button>
               <button className="btn-save" onClick={handleAdminLogin}>확인</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 구글 문서 잠금 모달 ── */}
-      {showGdocsPrompt && (
-        <div className="modal-backdrop" onClick={() => { setShowGdocsPrompt(false); setGdocsPw(''); setGdocsPwError(false); }}>
-          <div className="modal-box pw-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-class">🔒 학교 구글 문서</span>
-              <button className="modal-close" onClick={() => { setShowGdocsPrompt(false); setGdocsPw(''); setGdocsPwError(false); }}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:8 }}>개인정보가 포함된 문서입니다. 비밀번호를 입력하세요.</p>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={gdocsPw}
-                  onChange={e => { setGdocsPw(e.target.value); setGdocsPwError(false); }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      if (gdocsPw === process.env.REACT_APP_ADMIN_PASSWORD) {
-                        setGdocsUnlocked(true);
-                        setActiveTab('googledoc');
-                        setShowGdocsPrompt(false);
-                        setGdocsPw('');
-                      } else {
-                        setGdocsPwError(true);
-                      }
-                    }
-                  }}
-                  placeholder="비밀번호 입력"
-                  autoFocus
-                />
-              </label>
-              {gdocsPwError && <p className="pw-error">비밀번호가 올바르지 않습니다.</p>}
-            </div>
-            <div className="modal-footer">
-              <div style={{ flex: 1 }} />
-              <button className="btn-cancel" onClick={() => { setShowGdocsPrompt(false); setGdocsPw(''); setGdocsPwError(false); }}>취소</button>
-              <button className="btn-save" onClick={() => {
-                if (gdocsPw === process.env.REACT_APP_ADMIN_PASSWORD) {
-                  setGdocsUnlocked(true);
-                  setActiveTab('googledoc');
-                  setShowGdocsPrompt(false);
-                  setGdocsPw('');
-                } else {
-                  setGdocsPwError(true);
-                }
-              }}>확인</button>
             </div>
           </div>
         </div>
