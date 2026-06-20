@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { API_BASE } from '../config';
 
 const NAME_KEY = 'schosche_chat_name';
 
@@ -58,7 +59,7 @@ export default function ChatRoom() {
   // ── 소켓 연결 ──────────────────────────────────────
   useEffect(() => {
     const socket = io(
-      (process.env.REACT_APP_API_URL || window.location.origin) + '/chat',
+      API_BASE + '/chat',
       { transports: ['websocket', 'polling'], withCredentials: true }
     );
     socketRef.current = socket;
