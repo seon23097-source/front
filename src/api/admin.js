@@ -1,4 +1,4 @@
-const BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+import { API_BASE as BASE } from '../config';
 
 const req = async (method, path, body) => {
   const res = await fetch(`${BASE}/api${path}`, {

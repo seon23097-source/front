@@ -1,4 +1,4 @@
-const BASE_URL = process.env.REACT_APP_API_URL || '';
+import { API_BASE as BASE_URL } from '../config';
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB (Cloudflare 100MB 제한 대응)
 
 /** 파일 목록 조회 */

@@ -1,5 +1,5 @@
 // src/api/noticeApi.js
-const BASE = process.env.REACT_APP_API_URL || '';
+import { API_BASE as BASE } from '../config';
 
 // ── notice_items (시간표 안내장/제출마감) ─────────────
 export async function fetchNoticeItems() {

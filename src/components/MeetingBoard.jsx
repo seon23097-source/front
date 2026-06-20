@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import ConfirmModal from './ConfirmModal';
 import { fetchPosts, createPost, updatePost, deletePost, submitVote, fetchVoters, updateOption, fetchComments, createComment, deleteComment } from '../api/meetingApi';
-
-const BASE = process.env.REACT_APP_API_URL || '';
+import { API_BASE as BASE } from '../config';
 
 // ── 유틸 ─────────────────────────────────────────────
 function formatDate(ts) {

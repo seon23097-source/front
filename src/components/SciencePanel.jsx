@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API = process.env.REACT_APP_API_URL || '';
+import { API_BASE as API } from '../config';
 
 // ── API 헬퍼 ──────────────────────────────────────────
 const sci = {

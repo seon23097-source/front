@@ -1,5 +1,5 @@
 // src/api/meetingApi.js
-const BASE = process.env.REACT_APP_API_URL || '';
+import { API_BASE as BASE } from '../config';
 
 // ── 게시글 ────────────────────────────────────────────
 export async function fetchPosts() {

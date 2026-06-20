@@ -1,4 +1,4 @@
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+import { API_BASE as BASE_URL } from '../config';
 
 export async function fetchTimetable() {
   const res = await fetch(`${BASE_URL}/api/timetable`);

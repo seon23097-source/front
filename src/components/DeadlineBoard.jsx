@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import ConfirmModal from './ConfirmModal';
 import { deleteNoticeItem } from '../api/noticeApi';
-
-const BASE_URL = process.env.REACT_APP_API_URL || '';
+import { API_BASE as BASE_URL } from '../config';
 
 async function apiGetSubmitMap() {
   try {
