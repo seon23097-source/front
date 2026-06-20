@@ -58,7 +58,7 @@ export default function App() {
     return () => window.removeEventListener('timetableItemsChanged', reloadNoticeItems);
   }, [reloadNoticeItems]);
 
-  const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'teacher2024';
+  const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD;
 
   const handleAdminLogin = () => {
     if (adminPw === ADMIN_PASSWORD) {
